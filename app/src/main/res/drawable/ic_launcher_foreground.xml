@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Placeholder mark: a simple split circle. Real branding lands in M7. -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M54,30 A24,24 0 0 1 54,78 Z" />
+    <path
+        android:fillColor="#80FFFFFF"
+        android:pathData="M54,30 A24,24 0 0 0 54,78 Z" />
+</vector>
