@@ -2,12 +2,18 @@
 package app.dibs.core.data.di
 
 import android.content.Context
+import androidx.datastore.core.DataStoreFactory
+import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import app.dibs.core.data.db.DibsDatabase
 import app.dibs.core.data.key.AndroidKeystoreCipher
 import app.dibs.core.data.key.DatabaseKeyProvider
 import app.dibs.core.data.key.WrappedPassphraseStore
 import app.dibs.core.data.ledger.DeviceIdProvider
 import app.dibs.core.data.ledger.LedgerRepository
+import app.dibs.core.data.settings.DataStoreSettingsStore
+import app.dibs.core.data.settings.UserSettingsSerializer
+import app.dibs.core.domain.settings.SettingsStore
+import app.dibs.core.domain.settings.UserSettings
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -42,4 +48,13 @@ object DataModule {
     @Singleton
     fun ledgerRepository(database: DibsDatabase, deviceIdProvider: DeviceIdProvider): LedgerRepository =
         LedgerRepository(database, deviceIdProvider.getOrCreate())
+
+    @Provides
+    @Singleton
+    fun settingsStore(@ApplicationContext context: Context): SettingsStore = DataStoreSettingsStore(
+        DataStoreFactory.create(
+            serializer = UserSettingsSerializer,
+            corruptionHandler = ReplaceFileCorruptionHandler { UserSettings() },
+        ) { context.filesDir.resolve("settings/user-settings.json") },
+    )
 }

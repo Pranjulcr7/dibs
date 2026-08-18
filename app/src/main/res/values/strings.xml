@@ -2,5 +2,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <resources>
     <string name="app_name">Dibs</string>
-    <string name="placeholder_coming_soon">Dibs is under construction. Expense splitting, coming right up.</string>
+    <string name="tab_groups">Groups</string>
+    <string name="tab_activity">Activity</string>
+    <string name="tab_settings">Settings</string>
+    <string name="fab_add_expense">Add expense</string>
+    <string name="coming_soon">Not built yet — this arrives in an upcoming stage.</string>
 </resources>

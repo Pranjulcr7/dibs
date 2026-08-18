@@ -26,6 +26,7 @@ rootProject.name = "dibs"
 
 include(":app")
 include(":core:domain")
+include(":core:ui")
 include(":core:data")
 include(":core:ocr")
 include(":core:sync")

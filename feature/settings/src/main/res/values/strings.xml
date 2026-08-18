@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="onboarding_pitch_title">Split expenses with friends</string>
+    <string name="onboarding_pitch_body">Log who paid and who owes. No account, no sign-up — open the app and add an expense.</string>
+    <string name="onboarding_local_title">Your data stays on this phone</string>
+    <string name="onboarding_local_body">Dibs has no server and collects nothing. That also means backups are up to you — you can create one any time from Settings.</string>
+    <string name="onboarding_name_title">What should we call you?</string>
+    <string name="onboarding_name_body">Your name appears next to expenses you add. You can change it later.</string>
+    <string name="onboarding_name_label">Your name</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_get_started">Get started</string>
+    <string name="onboarding_page_of">Page %1$d of %2$d</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_placeholder_body">Theme, currency, backups, and app lock arrive as the app grows. Nothing to configure yet.</string>
+    <string name="settings_about_privacy">Dibs collects nothing. Your data lives on this phone and never leaves it unless you share it.</string>
+</resources>

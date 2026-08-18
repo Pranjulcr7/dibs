@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="groups_empty_title">No groups yet</string>
+    <string name="groups_empty_body">A group holds shared expenses for a trip, a household, or just this once.</string>
+    <string name="groups_create">Create a group</string>
+    <string name="groups_import_splitwise">Import from Splitwise</string>
+
+    <string name="activity_empty_title">No activity yet</string>
+    <string name="activity_empty_body">Expenses and payments from all your groups will show up here.</string>
+</resources>

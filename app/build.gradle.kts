@@ -33,6 +33,11 @@ android {
 
 dependencies {
     implementation(project(":core:domain"))
+    // The composition root: features see only domain interfaces; the app links
+    // in :core:data so Hilt can bind the implementations (CLAUDE.md: ":app —
+    // navigation host, DI wiring, nothing else").
+    implementation(project(":core:data"))
+    implementation(project(":core:ui"))
     implementation(project(":feature:groups"))
     implementation(project(":feature:expense"))
     implementation(project(":feature:settle"))
@@ -41,4 +46,9 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.compose.material.icons.core)
+
+    testImplementation(libs.junit4)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.turbine)
 }

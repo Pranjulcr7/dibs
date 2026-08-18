@@ -8,6 +8,7 @@ plugins {
 dependencies {
     // Pure-JVM only; verifyPureJvm enforces the boundary.
     implementation(libs.kotlinx.serialization.core)
+    api(libs.kotlinx.coroutines.core)
     implementation(libs.commons.codec)
 }
 
