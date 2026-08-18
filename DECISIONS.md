@@ -149,7 +149,7 @@ this is build-enforced: `verifyNoShadowedCodecImports` (registered by every
 convention plugin, wired into `check`) fails the build on any such import,
 with the failure message explaining the shadowing.
 
-### D20-note. Golden vectors freeze the canonical encoding
+### D22. Golden vectors freeze the canonical encoding
 
 `GoldenVectorsTest` in `:core:domain` pins the exact canonical encoding string,
 the BLAKE3 op id, and a full ledger fold's `canonicalBytes()` against constants
@@ -157,6 +157,39 @@ generated once from M2 behavior. Any drift fails with an explicit "this breaks
 sync with all previously released versions" message. The constants are the
 compatibility contract; they are never regenerated to make a failing build
 pass — an intentional format change bumps `dibs-op-v1` and ships a migration.
+
+## M3 — The app
+
+### D20. `:core:ui` added to the module map
+
+CLAUDE.md's diagram doesn't list a shared UI module, but five feature modules
+cannot each own the theme, and `:app` may hold nothing but wiring. `:core:ui`
+(design system, formatting, shared components) extends the map in the existing
+dependency direction: `:feature:* -> :core:ui -> :core:domain`. A recorded
+extension, not a silent deviation.
+
+### D21. Typed DataStore via kotlinx-serialization, not protobuf codegen
+
+Same androidx DataStore machinery and atomicity, typed schema, corruption
+recovery, unknown-field tolerance — without a second code generator in the
+build. CLAUDE.md's stack table says "DataStore (Proto)"; the intent (typed,
+transactional preferences) is preserved, the wire format is JSON.
+
+### D23. "Which member is me" is device-local, never in the op-log
+
+The op-log records members; *which one is this device's user* differs per
+device, so the mapping lives in local settings (`UserSettings.selfMembers`),
+written when this device creates a group. Groups joined via sync (M6) will set
+it during the join flow. Without a mapping the UI simply omits "you owe/are
+owed" rather than guessing.
+
+### D24. Screen placement not in CLAUDE.md's module list
+
+The Activity tab lives in `:feature:groups` (it is a cross-group ledger feed);
+onboarding lives in `:feature:settings` (it writes preferences). Group "delete"
+does not exist in 3b — deactivation and archive (3d) are the sanctioned paths,
+mirroring members (edge 13). Member merge remains detection-only (D16) until a
+merge op exists.
 
 ## M0 — Foundation
 

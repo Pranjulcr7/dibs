@@ -51,6 +51,21 @@ class ConvergenceSimulationTest : FunSpec({
                     // Deliberately reuse a small name pool so same-name members
                     // (edge 26) arise naturally in random runs.
                     actor.act(addMember(member, listOf("Sam", "Alex", "Kai")[random.nextInt(3)]))
+                    // Occasionally toggle activation and touch group metadata so
+                    // the 3b payloads ride through every convergence scenario;
+                    // concurrent CreateGroups exercise deterministic quarantine.
+                    if (random.nextInt(4) == 0) actor.act(OpPayload.DeactivateMember(member))
+                    if (random.nextInt(6) == 0) {
+                        actor.act(
+                            OpPayload.CreateGroup(
+                                name = "grp-${random.nextInt(3)}",
+                                defaultCurrency = app.dibs.core.domain.money.CurrencyCode("USD"),
+                            ),
+                        )
+                    }
+                    if (random.nextInt(6) == 0) {
+                        actor.act(OpPayload.EditGroup(name = "renamed-${random.nextInt(10)}"))
+                    }
                 }
                 in 2..4 -> if (knownMembers.isNotEmpty()) {
                     val id = expenseId(nextEntity++)

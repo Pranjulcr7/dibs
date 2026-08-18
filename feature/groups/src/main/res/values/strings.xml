@@ -5,7 +5,55 @@
     <string name="groups_empty_body">A group holds shared expenses for a trip, a household, or just this once.</string>
     <string name="groups_create">Create a group</string>
     <string name="groups_import_splitwise">Import from Splitwise</string>
+    <string name="groups_member_count">%1$d members</string>
+    <string name="groups_member_count_one">1 member</string>
+    <string name="groups_owed">You\'re owed %1$s</string>
+    <string name="groups_owe">You owe %1$s</string>
+    <string name="groups_settled">Settled up</string>
+    <string name="groups_unnamed">Unnamed group</string>
 
     <string name="activity_empty_title">No activity yet</string>
     <string name="activity_empty_body">Expenses and payments from all your groups will show up here.</string>
+
+    <string name="create_group_title">New group</string>
+    <string name="create_group_name_label">Group name</string>
+    <string name="create_group_emoji_label">Emoji (optional)</string>
+    <string name="create_group_emoji_none">None</string>
+    <string name="create_group_currency_label">Currency</string>
+    <string name="create_group_confirm">Create</string>
+    <string name="create_group_back">Back</string>
+    <string name="create_group_self_fallback">You</string>
+
+    <string name="detail_tab_expenses">Expenses</string>
+    <string name="detail_tab_balances">Balances</string>
+    <string name="detail_tab_settle">Settle up</string>
+    <string name="detail_expenses_empty_title">No expenses yet</string>
+    <string name="detail_expenses_empty_body">Tap + to add the first expense.</string>
+    <string name="detail_settle_empty_title">Settle up is on its way</string>
+    <string name="detail_settle_empty_body">Suggested payments arrive in an upcoming update.</string>
+    <string name="detail_balances_empty_title">Nothing to balance</string>
+    <string name="detail_balances_empty_body">Balances appear once the group has expenses.</string>
+    <string name="detail_syncing">Syncing…</string>
+    <string name="detail_members_action">Members</string>
+    <string name="detail_edit_action">Edit group</string>
+    <string name="detail_back">Back</string>
+    <string name="detail_add_expense">Add expense</string>
+    <string name="detail_you">You</string>
+
+    <string name="edit_group_title">Edit group</string>
+    <string name="edit_group_save">Save</string>
+    <string name="edit_group_cancel">Cancel</string>
+
+    <string name="members_title">Members</string>
+    <string name="members_add_label">Add member by name</string>
+    <string name="members_add_button">Add</string>
+    <string name="members_inactive_header">Deactivated</string>
+    <string name="members_duplicate_hint">Same name as another member — colors tell them apart</string>
+    <string name="members_rename">Rename</string>
+    <string name="members_deactivate">Deactivate</string>
+    <string name="members_reactivate">Reactivate</string>
+    <string name="members_deactivate_note">Deactivated members are hidden from new expenses; their history stays.</string>
+    <string name="members_actions_for">Actions for %1$s</string>
+    <string name="members_rename_title">Rename member</string>
+    <string name="members_rename_label">Name</string>
 </resources>

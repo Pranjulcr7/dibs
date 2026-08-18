@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.core.domain.settings
 
+import app.dibs.core.domain.model.GroupId
+import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
@@ -26,6 +28,12 @@ data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val dynamicColor: Boolean = true,
     val defaultCurrency: CurrencyCode = CurrencyCode("USD"),
+    /**
+     * Which member is "you", per group. Device-local by design: the op-log
+     * records members, but *which one is me* differs per device, so identity
+     * mapping never belongs in shared state (DECISIONS.md D23).
+     */
+    val selfMembers: Map<GroupId, MemberId> = emptyMap(),
 )
 
 /**

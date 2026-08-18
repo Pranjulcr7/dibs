@@ -12,6 +12,7 @@ import app.dibs.core.data.ledger.DeviceIdProvider
 import app.dibs.core.data.ledger.LedgerRepository
 import app.dibs.core.data.settings.DataStoreSettingsStore
 import app.dibs.core.data.settings.UserSettingsSerializer
+import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.settings.SettingsStore
 import app.dibs.core.domain.settings.UserSettings
 import dagger.Module
@@ -48,6 +49,10 @@ object DataModule {
     @Singleton
     fun ledgerRepository(database: DibsDatabase, deviceIdProvider: DeviceIdProvider): LedgerRepository =
         LedgerRepository(database, deviceIdProvider.getOrCreate())
+
+    @Provides
+    @Singleton
+    fun ledger(repository: LedgerRepository): Ledger = repository
 
     @Provides
     @Singleton

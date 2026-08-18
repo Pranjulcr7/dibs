@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import app.dibs.core.ui.theme.DibsTheme
+import app.dibs.feature.groups.list.GroupsUiState
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -29,6 +30,8 @@ class GroupsScreenTest {
         compose.setContent {
             DibsTheme {
                 GroupsScreen(
+                    uiState = GroupsUiState.Content(emptyList()),
+                    onOpenGroup = {},
                     onCreateGroup = { createClicked = true },
                     onImportFromSplitwise = { importClicked = true },
                 )

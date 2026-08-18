@@ -62,9 +62,22 @@ sealed interface QuarantineReason {
     data class UnknownMember(val memberId: MemberId) : QuarantineReason
     data class UnknownExpense(val expenseId: ExpenseId) : QuarantineReason
     data class UnknownSettlement(val settlementId: SettlementId) : QuarantineReason
+    data object UnknownGroup : QuarantineReason
     data object InvalidAmounts : QuarantineReason
     data object DuplicateEntity : QuarantineReason
 }
+
+/**
+ * Group decoration set by [OpPayload.CreateGroup] (FR-G1). Nullable on
+ * [GroupState] because a group exists from its first op; ops never wait for
+ * metadata to fold.
+ */
+data class GroupMeta(
+    val name: String,
+    val emoji: String?,
+    val colorArgb: Long?,
+    val defaultCurrency: CurrencyCode,
+)
 
 /**
  * An op that folded ops could not apply (unknown reference, invalid content).
@@ -90,6 +103,7 @@ data class GroupState(
     val expenses: SortedMap<ExpenseId, ExpenseState>,
     val settlements: SortedMap<SettlementId, SettlementState>,
     val quarantined: List<QuarantinedOp>,
+    val meta: GroupMeta? = null,
 ) {
 
     /** Expenses visible in normal lists; tombstoned ones live in [trash]. */
@@ -122,6 +136,14 @@ data class GroupState(
      */
     fun canonicalBytes(): ByteArray = buildString {
         append("state|").append(groupId.value).append('\n')
+        // Emitted only when present: groups predating metadata ops (and the M2
+        // golden vectors) must keep their exact canonical rendering.
+        meta?.let { m ->
+            append("g|").append(m.name.length).append(':').append(m.name)
+                .append('|').append(m.emoji?.let { "${it.length}:$it" } ?: "null")
+                .append('|').append(m.colorArgb?.toString() ?: "null")
+                .append('|').append(m.defaultCurrency.value).append('\n')
+        }
         members.values.forEach { member ->
             append("m|").append(member.id.value).append('|').append(member.name.length).append(':')
                 .append(member.name).append('|').append(member.active)

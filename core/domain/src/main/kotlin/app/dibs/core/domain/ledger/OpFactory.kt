@@ -139,9 +139,40 @@ object OpFactory {
         optStr(fields.note)
     }
 
-    @Suppress("LongMethod") // one exhaustive when over every payload type; splitting would hide the format
+    // One exhaustive when per payload type; splitting would hide the format.
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
     private fun StringBuilder.payload(payload: OpPayload) {
         when (payload) {
+            is OpPayload.CreateGroup -> {
+                str("create_group")
+                str(payload.name)
+                optStr(payload.emoji)
+                if (payload.colorArgb == null) append("n;") else num(payload.colorArgb)
+                str(payload.defaultCurrency.value)
+            }
+            is OpPayload.EditGroup -> {
+                str("edit_group")
+                optStr(payload.name)
+                // Presence markers, as for NoteEdit: "untouched" and "cleared"
+                // must never encode alike.
+                if (payload.emoji == null) {
+                    append("n;")
+                } else {
+                    append("p;")
+                    optStr(payload.emoji.value)
+                }
+                if (payload.colorArgb == null) {
+                    append("n;")
+                } else {
+                    append("p;")
+                    if (payload.colorArgb.value == null) append("n;") else num(payload.colorArgb.value)
+                }
+                if (payload.defaultCurrency == null) append("n;") else str(payload.defaultCurrency.value)
+            }
+            is OpPayload.ReactivateMember -> {
+                str("reactivate_member")
+                str(payload.memberId.value)
+            }
             is OpPayload.AddMember -> {
                 str("add_member")
                 str(payload.memberId.value)

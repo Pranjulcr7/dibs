@@ -1,5 +1,36 @@
 # PROGRESS
 
+## 2026-08-18 — M3 stage 3b complete (awaiting review)
+
+`./gradlew check` green; installed to the Galaxy S24 Ultra. Groups and members
+are fully functional end to end on one device.
+
+- **Domain:** new op payloads `CreateGroup`, `EditGroup` (field-level LWW with
+  cleared-vs-untouched markers), `ReactivateMember`; `GroupMeta` folds into
+  `GroupState` (canonical line emitted only when present, so all M2 golden
+  vectors stand untouched); a new golden vector freezes the 3b encodings;
+  convergence simulation now exercises the new payloads. `Ledger` interface
+  extracted (SPEC §5.5) — features depend on domain only; implementations bound
+  in `:app`.
+- **Data:** `LedgerRepository` implements `Ledger` (repository stamps the
+  display-only wall clock), `observeGroupIds` seeded from the ops table and
+  live-updated, verified across reopen.
+- **UI:** group list with color-coded "you're owed / you owe / settled up"
+  cards; create group (name, emoji, currency); group detail with header net
+  position, syncing chip, Expenses/Balances/Settle tabs (Expenses fills in 3c,
+  Settle in 3d); balances tab with "you" pinned first and per-currency
+  sections; members screen with add/rename/deactivate/reactivate, "You" chip,
+  duplicate-name hint with deterministic avatar colors (edges 12/13/26);
+  edit-group dialog. Navigation: home / create-group / group / members routes.
+- **Tests first throughout:** projector tests for the new payloads, golden
+  vector for 3b encodings, repository interface tests, ViewModel tests over a
+  FakeLedger that wraps the real domain fold, Compose tests for list, create,
+  members, and empty states. 3a's screens untouched except the groups list
+  gaining content.
+- Self-identity mapping is device-local settings (D23); merge stays
+  detection-only (D16/D24).
+
+
 ## 2026-08-18 — M2 complete
 
 `./gradlew check` green: 138 tests (112 domain JVM + 26 data), ktlint, detekt,

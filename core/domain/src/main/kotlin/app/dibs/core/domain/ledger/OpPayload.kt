@@ -20,6 +20,32 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface OpPayload {
 
+    /**
+     * Establishes the group's metadata. The group *exists* implicitly with its
+     * first op — metadata is decoration, so ops that arrive without it still
+     * fold (SPEC §1: degrade, don't fail). A second CreateGroup quarantines;
+     * concurrent creates on two devices resolve by replay order like any
+     * duplicate.
+     */
+    @Serializable
+    @SerialName("create_group")
+    data class CreateGroup(
+        val name: String,
+        val emoji: String? = null,
+        val colorArgb: Long? = null,
+        val defaultCurrency: CurrencyCode,
+    ) : OpPayload
+
+    /** Partial metadata edit; null = unchanged, wrappers distinguish "cleared" (see [NoteEdit]). */
+    @Serializable
+    @SerialName("edit_group")
+    data class EditGroup(
+        val name: String? = null,
+        val emoji: EmojiEdit? = null,
+        val colorArgb: ColorEdit? = null,
+        val defaultCurrency: CurrencyCode? = null,
+    ) : OpPayload
+
     @Serializable
     @SerialName("add_member")
     data class AddMember(val memberId: MemberId, val name: String) : OpPayload
@@ -32,6 +58,11 @@ sealed interface OpPayload {
     @Serializable
     @SerialName("deactivate_member")
     data class DeactivateMember(val memberId: MemberId) : OpPayload
+
+    /** Undo for [DeactivateMember]; deactivation must be as reversible as it is safe. */
+    @Serializable
+    @SerialName("reactivate_member")
+    data class ReactivateMember(val memberId: MemberId) : OpPayload
 
     @Serializable
     @SerialName("add_expense")
@@ -93,6 +124,14 @@ data class ExpenseEdit(
 /** Wrapper whose presence means "the note was changed", possibly to null. */
 @Serializable
 data class NoteEdit(val value: String?)
+
+/** Wrapper whose presence means "the emoji was changed", possibly cleared; see [NoteEdit]. */
+@Serializable
+data class EmojiEdit(val value: String?)
+
+/** Wrapper whose presence means "the color was changed", possibly cleared; see [NoteEdit]. */
+@Serializable
+data class ColorEdit(val value: Long?)
 
 /** An atomic replacement of an expense's money block; see [ExpenseEdit]. */
 @Serializable

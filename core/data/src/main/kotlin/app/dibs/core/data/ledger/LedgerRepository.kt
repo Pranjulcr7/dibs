@@ -10,6 +10,7 @@ import app.dibs.core.domain.ledger.DeviceId
 import app.dibs.core.domain.ledger.ExpenseFields
 import app.dibs.core.domain.ledger.GroupProjector
 import app.dibs.core.domain.ledger.GroupState
+import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.ledger.Op
 import app.dibs.core.domain.ledger.OpFactory
 import app.dibs.core.domain.ledger.OpLog
@@ -17,7 +18,9 @@ import app.dibs.core.domain.ledger.OpPayload
 import app.dibs.core.domain.model.GroupId
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -36,10 +39,12 @@ import kotlinx.serialization.json.Json
  * triggers a full refold. Both paths land on identical state by construction
  * (same fold, same total order) and the tests assert it.
  */
+@Suppress("TooManyFunctions") // the Ledger interface surface plus its internals; cohesive by design
 class LedgerRepository(
     private val db: DibsDatabase,
     private val deviceId: DeviceId,
-) {
+    private val wallClock: () -> Long = System::currentTimeMillis,
+) : Ledger {
 
     /** Fold-path counters, exposed for tests to prove which path ran. */
     data class Diagnostics(val incrementalFolds: Int = 0, val fullRefolds: Int = 0)
@@ -56,8 +61,12 @@ class LedgerRepository(
 
     private val mutex = Mutex()
     private val caches = HashMap<GroupId, GroupCache>()
+    private val groupIdsFlow = MutableStateFlow<Set<GroupId>?>(null)
     private val stateFlows = HashMap<GroupId, MutableStateFlow<GroupState?>>()
     private val json = Json
+
+    /** [Ledger.append]: the repository stamps the (display-only) wall clock itself. */
+    override suspend fun append(groupId: GroupId, payload: OpPayload): Op = append(groupId, payload, wallClock())
 
     /** Creates a local op with the next lamport and current heads, persists it, and refolds. */
     suspend fun append(groupId: GroupId, payload: OpPayload, wallClockMillis: Long): Op = mutex.withLock {
@@ -75,26 +84,49 @@ class LedgerRepository(
     }
 
     /** Merges remote ops; duplicates are no-ops, ops for other groups are ignored. */
-    suspend fun ingest(groupId: GroupId, ops: Collection<Op>) {
+    override suspend fun ingest(groupId: GroupId, ops: Collection<Op>) {
         mutex.withLock {
             mergeLocked(groupId, loadLocked(groupId), ops.filter { it.groupId == groupId })
         }
     }
 
-    suspend fun state(groupId: GroupId): GroupState = mutex.withLock { loadLocked(groupId).state }
+    override suspend fun state(groupId: GroupId): GroupState = mutex.withLock { loadLocked(groupId).state }
 
     /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
-    suspend fun pendingCount(groupId: GroupId): Int = mutex.withLock { loadLocked(groupId).log.pending.size }
+    override suspend fun pendingCount(groupId: GroupId): Int = mutex.withLock { loadLocked(groupId).log.pending.size }
 
     /** Every op known for the group (for sync and for reference folds in tests). */
     suspend fun allOps(groupId: GroupId): List<Op> = mutex.withLock { loadLocked(groupId).log.all.toList() }
 
-    fun observeState(groupId: GroupId): Flow<GroupState> = flowFor(groupId).filterNotNull()
+    override fun observeState(groupId: GroupId): Flow<GroupState> = flow {
+        mutex.withLock { loadLocked(groupId) }
+        emitAll(flowFor(groupId).filterNotNull())
+    }
+
+    /** [Ledger.observeGroupIds]: seeded from the ops table, updated on every append/ingest. */
+    override fun observeGroupIds(): Flow<Set<GroupId>> = flow {
+        ensureGroupIdsLoaded()
+        emitAll(groupIdsFlow.filterNotNull())
+    }
 
     // -- internals ----------------------------------------------------------
 
     private fun flowFor(groupId: GroupId): MutableStateFlow<GroupState?> =
         synchronized(stateFlows) { stateFlows.getOrPut(groupId) { MutableStateFlow(null) } }
+
+    private suspend fun ensureGroupIdsLoaded() {
+        if (groupIdsFlow.value == null) {
+            mutex.withLock {
+                if (groupIdsFlow.value == null) {
+                    groupIdsFlow.value = db.opDao().groupIds().map(::GroupId).toSet()
+                }
+            }
+        }
+    }
+
+    private fun noteGroupLocked(groupId: GroupId) {
+        groupIdsFlow.value = (groupIdsFlow.value ?: emptySet()) + groupId
+    }
 
     private suspend fun loadLocked(groupId: GroupId): GroupCache {
         caches[groupId]?.let { return it }
@@ -131,6 +163,7 @@ class LedgerRepository(
         persistProjection(groupId, newState, applicable.size, applicable.lastOrNull()?.id?.value)
         caches[groupId] = GroupCache(newLog, newState, applicable.size, applicable.lastOrNull()?.id?.value)
         flowFor(groupId).value = newState
+        noteGroupLocked(groupId)
     }
 
     private suspend fun persistProjection(

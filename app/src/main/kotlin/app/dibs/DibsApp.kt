@@ -26,10 +26,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import app.dibs.core.domain.settings.UserSettings
 import app.dibs.core.ui.theme.DibsTheme
 import app.dibs.feature.groups.ActivityScreen
-import app.dibs.feature.groups.GroupsScreen
+import app.dibs.feature.groups.GroupsRoute
+import app.dibs.feature.groups.create.CreateGroupRoute
+import app.dibs.feature.groups.detail.GroupDetailRoute
+import app.dibs.feature.groups.members.MembersRoute
 import app.dibs.feature.settings.SettingsScreen
 import app.dibs.feature.settings.onboarding.OnboardingRoute
 import kotlinx.coroutines.launch
@@ -51,13 +59,60 @@ fun DibsApp(settings: UserSettings) {
         if (!settings.onboardingComplete) {
             OnboardingRoute(onDone = {})
         } else {
-            HomeScaffold()
+            DibsNavHost()
         }
     }
 }
 
 @Composable
-private fun HomeScaffold() {
+private fun DibsNavHost() {
+    val navController = rememberNavController()
+    NavHost(navController = navController, startDestination = "home") {
+        composable("home") {
+            HomeScaffold(
+                onOpenGroup = { navController.navigate("group/${it.value}") },
+                onCreateGroup = { navController.navigate("create-group") },
+            )
+        }
+        composable("create-group") {
+            CreateGroupRoute(
+                onCreated = { groupId ->
+                    navController.navigate("group/${groupId.value}") {
+                        popUpTo("home")
+                    }
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            "group/{groupId}",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+        ) { entry ->
+            val groupId = entry.arguments?.getString("groupId").orEmpty()
+            val snackbarHostState = remember { SnackbarHostState() }
+            val scope = rememberCoroutineScope()
+            val comingSoon = stringResource(R.string.coming_soon)
+            Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
+                androidx.compose.foundation.layout.Box(Modifier.padding(padding)) {
+                    GroupDetailRoute(
+                        onBack = { navController.popBackStack() },
+                        onOpenMembers = { navController.navigate("group/$groupId/members") },
+                        onAddExpense = { scope.launch { snackbarHostState.showSnackbar(comingSoon) } },
+                    )
+                }
+            }
+        }
+        composable(
+            "group/{groupId}/members",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+        ) {
+            MembersRoute(onBack = { navController.popBackStack() })
+        }
+    }
+}
+
+@Composable
+private fun HomeScaffold(onOpenGroup: (app.dibs.core.domain.model.GroupId) -> Unit, onCreateGroup: () -> Unit) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -91,8 +146,9 @@ private fun HomeScaffold() {
     ) { padding ->
         val contentModifier = Modifier.padding(padding)
         when (HomeTab.entries[selectedTab]) {
-            HomeTab.GROUPS -> GroupsScreen(
-                onCreateGroup = notYet,
+            HomeTab.GROUPS -> GroupsRoute(
+                onOpenGroup = onOpenGroup,
+                onCreateGroup = onCreateGroup,
                 onImportFromSplitwise = notYet,
                 modifier = contentModifier,
             )

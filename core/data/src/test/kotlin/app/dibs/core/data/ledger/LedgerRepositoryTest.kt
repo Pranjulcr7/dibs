@@ -184,6 +184,38 @@ class LedgerRepositoryTest {
     }
 
     @Test
+    fun `given the Ledger interface append then the repository stamps a plausible wall clock itself`() = runTest {
+        val ledger: app.dibs.core.domain.ledger.Ledger = repository
+        val op = ledger.append(group, OpPayload.AddMember(alice, "Alice"))
+        assertTrue("wall clock should be stamped, got ${op.wallClockMillis}", op.wallClockMillis > 0)
+    }
+
+    @Test
+    fun `given groups created and ingested then observeGroupIds tracks them across reopen`() = runTest {
+        repository.observeGroupIds().test {
+            assertEquals(emptySet<GroupId>(), awaitItem())
+
+            repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+            assertEquals(setOf(group), awaitItem())
+
+            val other = GroupId("22222222-0000-4000-8000-000000000000")
+            val remote = GroupLedger(other, remoteDevice)
+            remote.append(OpPayload.AddMember(bob, "Bob"), 1)
+            repository.ingest(other, remote.log.all)
+            assertEquals(setOf(group, other), awaitItem())
+
+            cancelAndConsumeRemainingEvents()
+        }
+
+        // A fresh repository over the same database sees the persisted groups.
+        val reopened = LedgerRepository(db, localDevice)
+        reopened.observeGroupIds().test {
+            assertEquals(2, awaitItem().size)
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
     fun `given ops with missing parents then they persist and are reported pending until the parents arrive`() = runTest {
         val remote = GroupLedger(group, remoteDevice)
         val parent = remote.append(OpPayload.AddMember(alice, "Alice"), 1)

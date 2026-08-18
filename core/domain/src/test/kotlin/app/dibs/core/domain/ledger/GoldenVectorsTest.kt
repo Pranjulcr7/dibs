@@ -47,6 +47,14 @@ class GoldenVectorsTest : FunSpec({
         }
     }
 
+    test("golden: given the fixed 3b ledger with group metadata then the folded state matches the committed constant") {
+        withClue(ENCODING_CHANGED_MESSAGE) {
+            val log = OpLog.empty().merge(GoldenFixtures.metaLedgerOps())
+            log.project(GoldenFixtures.group).canonicalBytes().toString(Charsets.UTF_8) shouldBe
+                GoldenFixtures.EXPECTED_META_FOLD_CANONICAL_STATE
+        }
+    }
+
     test("golden: given the fixed ledger then the folded state's canonical bytes match the committed constant") {
         withClue(ENCODING_CHANGED_MESSAGE) {
             val log = OpLog.empty().merge(GoldenFixtures.ledgerOps())
@@ -138,7 +146,37 @@ object GoldenFixtures {
         return ops
     }
 
+    /** Fixed chain for the 3b payloads: create/edit group metadata, deactivate/reactivate. */
+    fun metaLedgerOps(): List<Op> {
+        val ops = mutableListOf<Op>()
+        fun add(payload: OpPayload): Op {
+            val op = OpFactory.create(
+                groupId = group,
+                deviceId = device,
+                lamport = ops.size + 1L,
+                parents = ops.lastOrNull()?.let { setOf(it.id) } ?: emptySet(),
+                wallClockMillis = 2_000L + ops.size,
+                payload = payload,
+            )
+            ops += op
+            return op
+        }
+        add(OpPayload.CreateGroup("Lisbon trip", emoji = "🌊", colorArgb = 0xFF8B5000, defaultCurrency = CurrencyCode("EUR")))
+        add(OpPayload.EditGroup(name = "Lisbon 2026", emoji = EmojiEdit(null)))
+        add(OpPayload.AddMember(alice, "Alice"))
+        add(OpPayload.DeactivateMember(alice))
+        add(OpPayload.ReactivateMember(alice))
+        add(OpPayload.EditGroup(colorArgb = ColorEdit(null), defaultCurrency = CurrencyCode("USD")))
+        return ops
+    }
+
     const val EXPECTED_OP_ID = "2d2a78f69159b82496593382a25281b12f3e61da535beaccb9c7fc87a09e0a6f"
+
+    val EXPECTED_META_FOLD_CANONICAL_STATE: String = listOf(
+        "state|11111111-1111-4111-8111-111111111111",
+        "g|11:Lisbon 2026|null|null|USD",
+        "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,001b7331edace9a0765812a6feb379ed584d224a765dca57a1cd9a3671953c9c,dddddddd-dddd-4ddd-8ddd-dddddddddddd,3",
+    ).joinToString("\n", postfix = "\n")
 
     const val EXPECTED_CANONICAL_ENCODING =
         "s10:dibs-op-v1;s36:11111111-1111-4111-8111-111111111111;s36:dddddddd-dddd-4ddd-8ddd-dddddddddddd;i42;i1755000000000;l2:s64:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;s64:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb;;s11:add_expense;s36:eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee;s17:Golden dinner ✓;s3:KWD;i10000;l1:s36:0a000000-0000-4000-8000-000000000001;i10000;;l2:s36:0a000000-0000-4000-8000-000000000001;i5000;s36:0b000000-0000-4000-8000-000000000002;i5000;;i20000;n;"

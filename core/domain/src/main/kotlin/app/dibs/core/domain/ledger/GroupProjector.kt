@@ -29,14 +29,42 @@ object GroupProjector {
 
     /** Applies one op. Never throws on op *content* — bad content quarantines (case 25). */
     fun apply(state: GroupState, op: Op): GroupState = when (val payload = op.payload) {
+        is OpPayload.CreateGroup -> applyCreateGroup(state, op, payload)
+        is OpPayload.EditGroup -> applyEditGroup(state, op, payload)
         is OpPayload.AddMember -> applyAddMember(state, op, payload)
         is OpPayload.RenameMember -> applyRenameMember(state, op, payload)
-        is OpPayload.DeactivateMember -> applyDeactivateMember(state, op, payload)
+        is OpPayload.DeactivateMember -> applyMemberActivation(state, op, payload.memberId, active = false)
+        is OpPayload.ReactivateMember -> applyMemberActivation(state, op, payload.memberId, active = true)
         is OpPayload.AddExpense -> applyAddExpense(state, op, payload)
         is OpPayload.EditExpense -> applyEditExpense(state, op, payload)
         is OpPayload.DeleteExpense -> applyExpenseMarker(state, op, payload.expenseId, deleted = true)
         is OpPayload.RestoreExpense -> applyExpenseMarker(state, op, payload.expenseId, deleted = false)
         is OpPayload.RecordSettlement -> applyRecordSettlement(state, op, payload)
+    }
+
+    private fun applyCreateGroup(state: GroupState, op: Op, payload: OpPayload.CreateGroup): GroupState {
+        if (state.meta != null) return state.quarantine(op, QuarantineReason.DuplicateEntity)
+        return state.copy(
+            meta = GroupMeta(payload.name, payload.emoji, payload.colorArgb, payload.defaultCurrency),
+        )
+    }
+
+    private fun applyEditGroup(state: GroupState, op: Op, payload: OpPayload.EditGroup): GroupState {
+        val meta = state.meta ?: return state.quarantine(op, QuarantineReason.UnknownGroup)
+        return state.copy(
+            meta = meta.copy(
+                name = payload.name ?: meta.name,
+                emoji = if (payload.emoji != null) payload.emoji.value else meta.emoji,
+                colorArgb = if (payload.colorArgb != null) payload.colorArgb.value else meta.colorArgb,
+                defaultCurrency = payload.defaultCurrency ?: meta.defaultCurrency,
+            ),
+        )
+    }
+
+    private fun applyMemberActivation(state: GroupState, op: Op, memberId: MemberId, active: Boolean): GroupState {
+        val member = state.members[memberId]
+            ?: return state.quarantine(op, QuarantineReason.UnknownMember(memberId))
+        return state.copy(members = state.members.plusSorted(memberId, member.copy(active = active)))
     }
 
     private fun applyAddMember(state: GroupState, op: Op, payload: OpPayload.AddMember): GroupState {
@@ -60,12 +88,6 @@ object GroupProjector {
             nameHistory = member.nameHistory + NameChange(payload.newName, op.id, op.deviceId, op.lamport),
         )
         return state.copy(members = state.members.plusSorted(payload.memberId, renamed))
-    }
-
-    private fun applyDeactivateMember(state: GroupState, op: Op, payload: OpPayload.DeactivateMember): GroupState {
-        val member = state.members[payload.memberId]
-            ?: return state.quarantine(op, QuarantineReason.UnknownMember(payload.memberId))
-        return state.copy(members = state.members.plusSorted(payload.memberId, member.copy(active = false)))
     }
 
     private fun applyAddExpense(state: GroupState, op: Op, payload: OpPayload.AddExpense): GroupState {
