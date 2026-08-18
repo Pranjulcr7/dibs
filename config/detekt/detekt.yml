@@ -14,7 +14,10 @@ naming:
 style:
   MagicNumber:
     active: false
+  MaxLineLength:
+    excludes: ['**/src/test/**']
   UnusedPrivateMember:
     ignoreAnnotated: ['Preview']
   ReturnCount:
-    max: 4
+    # Validation-heavy domain functions use guard clauses returning typed failures.
+    max: 6

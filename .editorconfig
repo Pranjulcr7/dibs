@@ -13,6 +13,10 @@ ktlint_code_style = intellij_idea
 ktlint_function_naming_ignore_when_annotated_with = Composable
 max_line_length = 120
 
+# Test names are sentences ("given X when Y then Z"); don't wrap them for a ruler.
+[**/src/test/**.kt]
+max_line_length = off
+
 [*.{yml,yaml,toml,xml,json}]
 indent_size = 2
 
