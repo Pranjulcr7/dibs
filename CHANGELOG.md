@@ -14,3 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Domain core: `Money` (integer minor units, correct ISO-4217 exponents), six
   split modes with largest-remainder allocation, itemized math with proportional
   tax and tip, net balances, and deterministic greedy settlement (M1).
+- Append-only op-log ledger: content-addressed ops, causal buffering,
+  deterministic fold with field-level last-writer-wins and tombstones, proven
+  convergent across simulated devices; Room persistence with incremental
+  refolds, pre-migration backups, and an SQLCipher key wrapped by the Android
+  Keystore (M2).

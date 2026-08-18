@@ -1,5 +1,66 @@
 # PROGRESS
 
+## 2026-08-18 — M2 complete
+
+`./gradlew check` green: 138 tests (112 domain JVM + 26 data), ktlint, detekt,
+lint, purity check, coverage gate. Stopped at the M2 boundary; M3 not started.
+
+### M2 — Ledger and persistence (shipped)
+
+**Domain op-log CRDT** (`app.dibs.core.domain.ledger`, pure Kotlin):
+
+- `Op` with BLAKE3 content-addressed id over a versioned hand-rolled canonical
+  encoding (DECISIONS.md D11/D12); payloads: add/rename/deactivate member,
+  add/edit/delete/restore expense, record settlement. Edits are field-level
+  with the money block atomic (D13).
+- `OpLog`: merge = set union; replay order `(lamport, deviceId, opId)`; ops
+  with incomplete ancestry buffer as `pending` (edge 24); `heads` become the
+  next local op's parents. `GroupLedger` owns the append rules (D17).
+- `GroupProjector`: pure left fold to `GroupState` (sorted maps, full edit
+  history with device attribution, tombstones, typed quarantine — D14/D15);
+  `canonicalBytes()` for byte-identical comparison; balances derive from
+  active expenses only. `ClockSkew` (edge 22), `DuplicateMembers` (edge 26).
+
+**Convergence simulation (the centerpiece):** 500 random multi-device
+scenarios — 2–5 devices, random interleaved ops, gossip with drops, duplicates
+and reordering, one partitioned device back-filled only at the end in shuffled
+re-delivered chunks — every device folds to byte-identical canonical state,
+pending empties, balances agree, and a fresh device folding the raw union
+matches too. Directed scenarios cover a from-the-start partition, concurrent
+delete+edit in both merge orders, and byte-identical quarantine bookkeeping.
+Edges 20–26 each have named tests. Mutation-verified: lamport-only ordering
+and disabled causal buffering each trip multiple tests, including the
+simulation itself.
+
+**Data layer** (`:core:data`):
+
+- Migration harness was committed **before** the first schema existed: a
+  coverage guard over exported schema JSONs plus a MigrationTestHelper walk;
+  verified end-to-end by bumping the version without a migration (two tests
+  fail). `DatabaseBackupManager` copies the db file aside on any version
+  change, tracked via a sidecar version file (D18).
+- Schema v1 (exported, committed): `ops` as source of truth; `members`,
+  `expenses`, `settlements`, `fold_meta` as transactional projections.
+- `LedgerRepository`: append/ingest/observe with **incremental fold** — an
+  O(1) checkpoint-intact test folds only the new suffix; an earlier-sorting
+  arrival triggers a full refold; tests prove both paths equal a from-scratch
+  fold and count which path ran. Repository reopen refolds persisted ops to
+  identical bytes.
+- Keystore-backed key (NFR-11): random 256-bit SQLCipher passphrase wrapped by
+  a Keystore AES-GCM key; store logic JVM-tested with a fake cipher;
+  `DibsDatabase.buildEncrypted` is the production path (on-device check in M3).
+
+### Deferred / notes
+
+- SQLCipher + Keystore integration test on a physical device — M3 (D18).
+- Projection tables store expense fields/history as JSON blobs; M3 will shape
+  them for real UI queries as screens dictate.
+- `GroupState` fold copies sorted maps per op (fine at current scale);
+  NFR-3 (5,000-expense group < 100 ms) gets measured and optimized in M7.
+- Vector clocks / sync-gap detection (edge 75) belong to M6's transport work.
+- A member-merge op (edge 26's user action) is intentionally absent until M3
+  UI exists to drive it.
+
 ## 2026-08-17 — M0 and M1 complete
 
 `./gradlew check` is green (tests + ktlint + detekt + Android Lint + domain

@@ -71,6 +71,67 @@ sentence convention is kept in those strings.
 single-payer expenses — retrofitting multi-payer into the ledger later would be
 a breaking op-log change, and the balance math is identical either way.
 
+## M2 — Ledger and persistence
+
+### D11. Op ids hash the whole op, not just the payload
+
+SPEC §5.5 words the id as a "BLAKE3 hash of the canonical serialized payload".
+Hashed that way, two byte-identical payloads collide — and identical payloads
+recur legitimately ("rename it back to A"), so the second op would vanish under
+set-union merge and reverts would be impossible. Ids therefore hash the whole
+op: group, device, lamport, wall clock, sorted parents, payload.
+
+### D12. Canonical encoding is hand-rolled and versioned, not a serialization library
+
+kotlinx-JSON writes properties in declaration order; a refactor could silently
+change every op id and fork every group's history. Op identity comes from an
+explicit format (`dibs-op-v1`): fixed field order per payload type,
+length-prefixed strings, all maps/sets sorted. JSON is used only as the *storage*
+format in Room, where field order doesn't matter. BLAKE3 comes from
+commons-codec (pure Java), keeping the domain JVM-pure.
+
+### D13. The money block edits atomically
+
+`EditExpense` treats currency+total+payers+split as one LWW field. They are
+mutually constrained (payments must equal shares); letting two devices win
+different halves would manufacture an unbalanced expense that nobody entered.
+Description, note, and date are independent LWW fields.
+
+### D14. Delete wins by construction, restore is explicit
+
+A tombstone is only cleared by `RestoreExpense`. Concurrent edits still fold
+into the fields and history, so restoring from trash returns the expense *with*
+those edits (SPEC §6.3 case 21's "preserved in history" made concrete).
+
+### D15. Invalid and unknown-reference ops quarantine instead of crashing or dropping
+
+Ops referencing unknown members/expenses, or internally unbalanced ones, land in
+a typed quarantine list that is part of canonical state — identical on every
+device — and never count toward balances (case 25). The choice is deterministic
+because it is made in replay order.
+
+### D16. Duplicate members are detected, never merged
+
+`DuplicateMembers.candidates` feeds the M3 merge prompt; a merge op does not
+exist yet by design — merging destroys information and must be an explicit user
+action (case 26).
+
+### D17. Repository lamport/parents live in the domain
+
+`GroupLedger` owns append rules (lamport = max seen + 1, parents = heads);
+the data layer and the convergence simulation both use it, so no writer can
+drift from the rules that make convergence hold.
+
+### D18. SQLCipher and Keystore are exercised on device, not in Robolectric
+
+Robolectric can load neither the SQLCipher native library nor a real Keystore.
+JVM tests run Room in-memory unencrypted with the key-wrapping logic tested
+against a fake cipher; `buildEncrypted` (SQLCipher factory + Keystore-wrapped
+passphrase + pre-migration backup) is the single production entry point and
+gets its on-device verification in M3. The pre-migration backup uses a sidecar
+version file because SQLCipher encrypts the SQLite header where `user_version`
+would otherwise be readable.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36
