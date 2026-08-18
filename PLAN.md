@@ -1,132 +1,102 @@
-# PLAN — M0 + M1
+# PLAN — M2 (Ledger and persistence)
 
-Scope: M0 (foundation) and M1 (domain core) only. Stop at the M1 boundary.
+Prior plans live in git history. Scope: the op-log CRDT in pure Kotlin, Room +
+SQLCipher persistence with repositories and incremental fold, Keystore-backed
+database key, the convergence simulation, edge cases 20–26, and a migration
+test harness built **before** the first schema exists. Stop at the M2 boundary.
 
 ---
 
-## 1. Module structure
+## 1. Domain: the op-log CRDT (`:core:domain`, pure Kotlin)
 
-```
-dibs/
-├── build-logic/                 # included build with convention plugins
-│   └── convention/
-├── gradle/libs.versions.toml    # single version catalog
-├── app/                         # navigation host + DI wiring, Compose placeholder
-├── core/
-│   ├── domain/                  # PURE Kotlin/JVM. No Android. M1 lives here.
-│   ├── data/                    # Android library, empty in M0 (Room/SQLCipher in M2)
-│   ├── ocr/                     # Android library, empty in M0 (ReceiptParser in M5)
-│   └── sync/                    # Android library, empty in M0 (SyncTransport in M6)
-└── feature/
-    ├── groups/                  # Android libraries, empty in M0 (screens in M3)
-    ├── expense/
-    ├── settle/
-    ├── scan/
-    └── settings/
-```
+New package `app.dibs.core.domain.ledger`:
 
-Dependency direction enforced as in CLAUDE.md: `:app -> :feature:* -> :core:domain`,
-`:core:data|ocr|sync -> :core:domain`. `:core:domain` depends on nothing.
+| Type | Shape |
+|---|---|
+| `OpId`, `DeviceId` | value classes over strings, `Comparable` |
+| `Op` | `id, groupId, lamport: Long, deviceId, parents: Set<OpId>, wallClockMillis: Long, payload` — wall clock is display-only, never ordering (SPEC §6.3 case 22) |
+| `OpPayload` | sealed, `@Serializable`: `AddMember`, `RenameMember`, `DeactivateMember`, `AddExpense`, `EditExpense`, `DeleteExpense`, `RestoreExpense`, `RecordSettlement` |
+| `ExpenseFields` / `ExpenseEdit` | full data vs. partial (nullable = unchanged) for field-level LWW. Money+payers+split change as **one atomic field** because they are mutually constrained (sum invariant) → DECISIONS.md |
+| `OpFactory` | computes `OpId` = BLAKE3 (commons-codec, pure Java) over a **hand-rolled canonical byte encoding** of the whole op (header + payload). Why not kotlinx-JSON: property order is declaration order, which can drift between app versions and silently change every op id. Why header included, not payload alone as SPEC §5.5 loosely words it: two identical edits ("rename back") would collide and vanish under set-union → DECISIONS.md |
+| `OpLog` | immutable; `merge(ops)` = set union keyed by id (dedup free, case 23); `heads` (frontier → parents for the next local op); `maxLamport`; splits ops into causally-complete (all ancestors present) vs `pending` (case 24 buffering) |
+| `GroupProjector` | **pure left fold**: `state = ops.fold(empty, ::apply)` over the total order `(lamport, deviceId, opId)`. A single-step `apply` is what makes incremental refold in the data layer trivial and correct |
+| `GroupState` | members (with rename history), expenses (data, tombstone flag, full edit history with per-op deviceId — cases 20/21), settlements, quarantined ops with typed reasons (case 25), all in id-sorted collections; `canonicalBytes()` for byte-identical convergence assertions |
+| `ClockSkew` | pure helper: warn when local wall clock differs > 24 h from newest received op (case 22) |
+| `DuplicateMembers` | detection of same-name distinct-id members; merge is a *user action* in M3, never automatic (case 26) |
 
-## 2. Gradle setup approach
+Fold rules (all deterministic, all replay-order):
+- Field-level LWW falls out of folding edits in total order.
+- `DeleteExpense` tombstones; edits still fold into data + history (recoverable
+  from trash); only `RestoreExpense` clears the tombstone → "delete wins" for
+  any concurrent edit (case 21).
+- Ops referencing unknown members/expenses, or internally invalid (sums
+  mismatch), are **quarantined with a reason**, never dropped, never a crash
+  (case 25). Quarantine decisions happen in fold order, so they are identical
+  on every device.
 
-- **Gradle 8.14.x wrapper**, JDK 17 toolchain, Kotlin 2.2.x, AGP 8.11.x.
-- **Version catalog** (`gradle/libs.versions.toml`) is the only place versions appear.
-- **Convention plugins** in `build-logic/convention` (an included build):
-  - `dibs.kotlin.jvm` — pure JVM modules: Kotlin JVM, JUnit5 platform, explicit
-    JDK 17, and the **domain purity check** (below).
-  - `dibs.android.library` — AGP library defaults (compileSdk 36, minSdk 26),
-    Kotlin Android, lint.
-  - `dibs.android.application` — same for `:app`.
-  - `dibs.android.compose` — Compose compiler + BOM wiring.
-  - `dibs.hilt` — Hilt + KSP.
-  - `dibs.quality` — ktlint + detekt, applied to every module from the root.
-- **Domain purity check** — a `verifyPureJvm` task registered by `dibs.kotlin.jvm`
-  and wired into `check`. It fails the build if:
-  1. any resolved compile/runtime dependency has a group matching
-     `androidx.*`, `com.android.*`, `com.google.android.*`, or `com.google.firebase.*`;
-  2. the module declares any `project(...)` dependency (`:core:domain` must sit at
-     the bottom of the graph);
-  3. any source file imports `android.` or `androidx.`.
-  Because `:core:domain` is a plain Kotlin JVM module, applying any Android plugin
-  there is itself impossible without also switching plugins — condition (1)+(3)
-  catch the realistic regressions (a transitive Android artifact or import).
-- **CI** (`.github/workflows/ci.yml`): on every PR and push to main — checkout,
-  Temurin JDK 17, Gradle action with caching, `./gradlew check` then
-  `./gradlew :app:assembleDebug`. Runs on PRs from forks. A `release.yml` builds
-  on tags and attaches the APK.
-- Open-source scaffolding per OPEN_SOURCE_SETUP.md §3: LICENSE (Apache-2.0),
-  README, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, ARCHITECTURE, PRIVACY,
-  CHANGELOG, issue/PR templates, dependabot, .gitignore, .editorconfig. SPDX
-  header in every source file.
+## 2. Data: Room + SQLCipher (`:core:data`)
 
-## 3. Domain types (M1, package `app.dibs.core.domain`)
+- **Migration harness first** (committed before any schema): Robolectric +
+  `MigrationTestHelper`; a guard test that reads `schemas/` and fails if any
+  consecutive version pair lacks a migration in `DibsDatabase.ALL_MIGRATIONS`;
+  a full walk oldest→newest once ≥2 schemas exist. Plus
+  `DatabaseBackupManager`: sidecar version file (SQLCipher encrypts the SQLite
+  header, so `user_version` can't be read from the file), copy the db before
+  any version change (CLAUDE.md invariant 5), pure-JVM tested.
+- Schema v1: single `ops` table (op id PK, group indexed, payload as JSON via
+  kotlinx-serialization) + materialized cache tables (`members`, `expenses`,
+  `settlements`, `fold_meta`) that mirror `GroupState` for M3's UI queries.
+  Ops are the source of truth; cache tables are disposable projections.
+- `LedgerRepository`: append local op (assigns lamport = maxSeen+1, parents =
+  heads), ingest remote ops (dedup by PK), recompute state — **incrementally**:
+  if all newly-applicable ops sort after the last folded position, fold just
+  the suffix via `GroupProjector.apply`; otherwise full refold. Emits
+  `Flow<GroupState>`. Writes cache tables transactionally.
+- Key: `DatabaseKeyProvider` interface — `AndroidKeystoreDatabaseKeyProvider`
+  (random 256-bit passphrase wrapped by a Keystore AES-GCM key, stored wrapped
+  in app-private storage) for the app; plain provider for tests. SQLCipher via
+  `net.zetetic:sqlcipher-android` `SupportOpenHelperFactory`, injected by Hilt.
+  Robolectric can't load the SQLCipher native lib or real Keystore, so JVM
+  tests run Room in-memory without the factory; the encrypted path is exercised
+  on-device in M3 → DECISIONS.md.
 
-| Type | Shape | Notes |
-|---|---|---|
-| `Money` | `@JvmInline value class Money(val minorUnits: Long)` | All arithmetic overflow-checked (`Math.addExact`). No `Double` anywhere. |
-| `CurrencyCode` | value class over the ISO-4217 alpha code | |
-| `Currencies` | object with the ISO-4217 **minor-unit exponent table** | Embedded pure-Kotlin table (default 2; JPY/KRW 0; KWD/BHD/TND 3, …). Not `android.icu` — the domain is pure JVM and exponents must be identical on every device regardless of platform ICU version. Formatting (display) still uses `android.icu` in the app layer. → DECISIONS.md |
-| `MemberId`, `ExpenseId`, `GroupId` | value classes over canonical UUID strings, `Comparable` | The stable sort key for every deterministic tiebreak. |
-| `SplitSpec` | sealed: `Equal`, `ByExactAmounts`, `ByPercentage`, `ByShares`, `ByAdjustment`, `Itemized` | Percentages are integer **basis points** summing to 10 000 — no floats. → DECISIONS.md |
-| `LineItem` | price + per-member integer consumption weights | Fractional consumption ("2 of us shared the nachos") = weights within the item. |
-| `Allocation` | member, amount, `roundingAdjustment` | Result rows sorted by `MemberId`; the +1-cent absorber is visible for the UI. |
-| `SplitResult` | sealed: `Success` / typed failures | Failures carry exact shortfall (edge cases 8, 9, 10). |
-| `Expense` | total, currency, `paidBy: Map<MemberId, Money>` (multi-payer), `owedBy` | Payments must sum to total. |
-| `SettlementPayment` | from, to, amount, currency | FR-S3. |
-| `Transfer` | from, to, amount | Output of settlement simplification. |
+## 3. Tests (written first)
 
-Algorithms:
+Domain (Kotest, JVM):
+- **Convergence simulation (the centerpiece):** N simulated devices each with
+  their own `OpLog` + lamport counter; random rounds of local ops (add/rename
+  members, add/edit/delete/restore expenses, settlements) interleaved with
+  gossip that reorders, duplicates, drops, and delays deliveries; one device
+  partitioned mid-run and back-filled at the end in shuffled chunks with
+  re-deliveries; final anti-entropy pass; assert every device's
+  `GroupState.canonicalBytes()` is byte-identical, pending is empty, balances
+  agree. ≥500 random scenarios plus directed scenarios (partition,
+  concurrent delete+edit both merge orders).
+- Named edge tests 20–26: concurrent field edits (both survive; same-field LWW
+  by `(lamport, deviceId)`; history shows both devices), delete-vs-edit
+  concurrency (delete wins, history intact, restorable), 1970/2099 wall clocks
+  (ordering unaffected; skew warning fires), duplicate delivery (no-op),
+  out-of-causal-order (buffered as pending, applied when parents arrive),
+  unknown-member op (quarantined, no crash), same-name member from two devices
+  (two records, merge suggested, never silent).
+- Op identity: canonical bytes stable under map/set iteration-order shuffling;
+  distinct header → distinct id; same logical op → same id across devices.
+- Lamport: monotonic, merge advances, ties broken by deviceId then opId.
 
-- **`LargestRemainder.allocate(total, weights)`** — exact shares as rationals via
-  `BigInteger` (no overflow at `Long.MAX_VALUE`), floor, then distribute leftover
-  units by descending fractional remainder, ties by ascending member UUID.
-  Every split mode funnels through this one function.
-- **Itemized math** — exact rational per-member subtotals; tax + tip prorated by
-  subtotal; **one** rounding at the end via largest-remainder against the true
-  total (items + tax + tip). Never rounds intermediates.
-- **`Balances.net(expenses, settlements)`** — per-currency `paid − owed`, sums to
-  zero by construction; never sums across currencies.
-- **`Settlement.simplify(balances)`** — greedy max-debtor/max-creditor pairing,
-  seeded sorted by `(amount desc, memberId asc)`, ≤ n−1 transfers. The code
-  comment states plainly this is not provably minimal (that problem is NP-hard).
+Data (Robolectric JUnit4 + pure JVM where possible):
+- Migration guard + baseline schema creation via the harness.
+- Backup manager: backs up exactly when version changes, keeps prior backup.
+- DAO: duplicate insert ignored; ordered queries per group.
+- Repository: local append assigns lamport/parents; ingest converges with
+  domain fold; incremental suffix-fold equals full refold (property-style over
+  random streams); Flow emits updated state (Turbine).
 
-## 4. Tests (written first; JUnit5 + Kotest property; ≥10 000 iterations each)
+## 4. Order of work
 
-Property tests:
-
-1. **Sum invariance** — for every split mode, over random totals (0…10^12),
-   currencies (incl. 0- and 3-decimal), and 1…20 members: allocations sum
-   exactly to the total. (Edge 11.)
-2. **Largest-remainder bounds** — every allocation differs from the exact
-   rational share by less than one minor unit; leftover distribution count ≤ n−1.
-3. **Net balances sum to zero** — random multi-payer expenses + partial
-   settlements, per currency.
-4. **Settlement terminates in ≤ n−1 transfers**, transfers are all positive,
-   and applying them zeroes every balance.
-5. **Determinism / byte-identical output** — for each algorithm: run twice, and
-   run with the input collections shuffled; canonical serialization of the result
-   is byte-identical.
-6. **Overflow safety** — sums near `Long.MAX_VALUE` either succeed exactly or
-   fail with a typed overflow error, never wrap. (Edge 5.)
-
-Named edge-case tests (SPEC §6.1, one each): 1 ($10/3 → 3.34/3.33/3.33 with
-deterministic recipient), 2 ($0.01/5 → one cent, four zeros, zero-share flag),
-3 (zero-amount allowed), 4 (negative rejected), 5 (Long.MAX_VALUE, overflow on
-sum), 6 (JPY: no fractional units, ¥1000/3 → 334/333/333), 7 (KWD exponent 3
-from the table; BHD too), 8 (99.99% blocks with exact shortfall), 9 ($9.99 of
-$10 blocks with remaining $0.01), 10 (all shares zero blocks), 11 (the sum-
-invariance property above).
-
-Plus unit tests: UUID tiebreak order, itemized proportional tax/tip vs
-hand-computed fixtures, discount line item reduces proration base, KRW zero-
-decimal, adjustment mode, multi-payer validation, settlement fixtures.
-
-## 5. Order of work
-
-1. M0: build-logic + catalog + `:core:domain` compiling with purity check green.
-2. M0: Android modules, placeholder Compose app, quality plugins, CI, OSS files.
-   Commit per unit. `./gradlew check` green.
-3. M1: write the test suite (red), then implement until green. Three-strike rule:
-   any property failure I can't fix in three attempts goes to BLOCKED.md.
-4. `./gradlew check`, PROGRESS.md, DECISIONS.md. Stop.
+1. PLAN.md (this file) — commit.
+2. Migration harness + backup manager + data test scaffolding — commit
+   (before any schema exists).
+3. Domain ledger tests (red) → implementation → green — commit.
+4. Schema v1 + DAOs + repository + key provider, tests green — commit.
+5. `./gradlew check`, update PROGRESS.md / DECISIONS.md / CHANGELOG.md — commit.
+   Stop at M2 boundary.
