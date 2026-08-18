@@ -12,6 +12,7 @@ android {
         // Room schema JSONs are exported here and committed; the migration test
         // harness reads them as test assets (CLAUDE.md invariant 5).
         testOptions.unitTests.isIncludeAndroidResources = true
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     sourceSets {
@@ -41,4 +42,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.kotest.assertions.core)
+
+    // On-device tests: the SQLCipher + Keystore path Robolectric cannot exercise.
+    androidTestImplementation(project(":core:domain"))
+    androidTestImplementation(libs.junit4)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.kotlinx.coroutines.core)
 }

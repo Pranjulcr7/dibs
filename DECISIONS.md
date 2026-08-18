@@ -132,6 +132,20 @@ gets its on-device verification in M3. The pre-migration backup uses a sidecar
 version file because SQLCipher encrypts the SQLite header where `user_version`
 would otherwise be readable.
 
+### D19. No classes that collide with Android's boot-classpath commons-codec
+
+Android devices carry an ancient `org.apache.commons.codec` inside
+`/system/framework/org.apache.http.legacy.jar`, and on real hardware (verified
+on a Galaxy S24 Ultra, Android 16) the boot-classpath `binary.Hex` shadows the
+bundled 1.17.x jar — its pre-1.4 API lacks `encodeHexString`, so op-id
+computation threw `NoSuchMethodError` on device while every JVM test passed.
+Hex encoding is now hand-rolled in `OpFactory` (ids unchanged: lowercase hex is
+lowercase hex). `digest.Blake3` stays with commons-codec because the framework
+jar has no copy of it to shadow — proven by the same on-device test, which now
+guards this whole startup path. Rule going forward: nothing in the app may
+depend on commons-codec classes that also exist in the legacy framework jar
+(`binary.*`, `digest.DigestUtils`, `language.*`, `net.*`).
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

@@ -50,9 +50,23 @@ simulation itself.
   a Keystore AES-GCM key; store logic JVM-tested with a fake cipher;
   `DibsDatabase.buildEncrypted` is the production path (on-device check in M3).
 
+### Addendum (2026-08-18): on-device encrypted-database test
+
+`EncryptedDatabaseTest` (androidTest in `:core:data`) now covers the real
+startup sequence with no fakes, run on a physical Galaxy S24 Ultra (Android
+16): Keystore-wrapped passphrase round-trips across store instances; write →
+close → reopen through `DibsDatabase.buildEncrypted` folds to byte-identical
+state; the file on disk is not plaintext SQLite; a lost key file makes the
+database unreadable (the passphrase is load-bearing). First run caught a real
+device-only bug: Android's boot-classpath commons-codec shadowed the bundled
+`Hex` and broke op-id computation on hardware — fixed by hand-rolling hex in
+`OpFactory` (op ids unchanged; see DECISIONS.md D19). All 4 tests pass on
+device; the JVM suite and `./gradlew check` stay green. Note: this test is not
+in CI (needs hardware); rerun it via `:core:data:connectedDebugAndroidTest`
+when touching the key or database-open path.
+
 ### Deferred / notes
 
-- SQLCipher + Keystore integration test on a physical device — M3 (D18).
 - Projection tables store expense fields/history as JSON blobs; M3 will shape
   them for real UI queries as screens dictate.
 - `GroupState` fold copies sorted maps per op (fine at current scale);

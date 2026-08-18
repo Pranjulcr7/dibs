@@ -4,7 +4,6 @@ package app.dibs.core.domain.ledger
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.Money
-import org.apache.commons.codec.binary.Hex
 import org.apache.commons.codec.digest.Blake3
 
 /**
@@ -61,10 +60,27 @@ object OpFactory {
         }
         val hash = ByteArray(HASH_LENGTH_BYTES)
         Blake3.initHash().update(canonical.toByteArray(Charsets.UTF_8)).doFinalize(hash)
-        return OpId(Hex.encodeHexString(hash))
+        return OpId(hash.toLowercaseHex())
     }
 
     private const val HASH_LENGTH_BYTES = 32
+    private const val HEX_DIGITS = "0123456789abcdef"
+
+    /**
+     * Hand-rolled instead of commons-codec's `Hex`: Android's boot classpath
+     * carries an ancient `org.apache.commons.codec.binary.Hex` (inside
+     * `org.apache.http.legacy.jar`) that shadows the bundled library on real
+     * devices and lacks `encodeHexString` — a `NoSuchMethodError` the on-device
+     * test caught. `digest.Blake3` has no framework copy, so it stays.
+     */
+    private fun ByteArray.toLowercaseHex(): String {
+        val out = StringBuilder(size * 2)
+        for (byte in this) {
+            val value = byte.toInt() and 0xFF
+            out.append(HEX_DIGITS[value ushr 4]).append(HEX_DIGITS[value and 0x0F])
+        }
+        return out.toString()
+    }
 
     // -- canonical encoding -------------------------------------------------
     // Strings are length-prefixed by UTF-8 byte count so no content can smuggle
