@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 plugins {
     id("dibs.kotlin.jvm")
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kover)
+}
+
+dependencies {
+    // Pure-JVM only; verifyPureJvm enforces the boundary.
+    implementation(libs.kotlinx.serialization.core)
+    implementation(libs.commons.codec)
 }
 
 // NFR-9: >90% line coverage in the domain layer, enforced by the build.

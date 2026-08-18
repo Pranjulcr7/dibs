@@ -6,6 +6,9 @@ complexity:
     ignoreAnnotated: ['Composable']
   LongMethod:
     ignoreAnnotated: ['Composable']
+    excludes: ['**/src/test/**']
+  CyclomaticComplexMethod:
+    excludes: ['**/src/test/**']
 
 naming:
   FunctionNaming:

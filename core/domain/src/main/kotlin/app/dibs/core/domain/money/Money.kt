@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.core.domain.money
 
+import kotlinx.serialization.Serializable
+
 /**
  * An amount of money as a count of ISO-4217 **minor units** (cents, fils, yen…).
  *
@@ -12,6 +14,7 @@ package app.dibs.core.domain.money
  * because a value class can hold only one field, and most arithmetic happens on
  * amounts already known to share a currency.
  */
+@Serializable
 @JvmInline
 value class Money(val minorUnits: Long) : Comparable<Money> {
 

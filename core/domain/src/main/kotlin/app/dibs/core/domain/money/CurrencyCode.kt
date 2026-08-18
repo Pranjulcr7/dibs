@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.core.domain.money
 
+import kotlinx.serialization.Serializable
+
 /**
  * An ISO-4217 alphabetic currency code such as `"USD"` or `"JPY"`.
  *
@@ -9,6 +11,7 @@ package app.dibs.core.domain.money
  * passed where a currency belongs. Validation is strict at construction so a
  * malformed code can never reach the ledger.
  */
+@Serializable
 @JvmInline
 value class CurrencyCode(val value: String) {
     init {
