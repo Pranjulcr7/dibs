@@ -19,6 +19,8 @@ class AndroidApplicationConventionPlugin : Plugin<Project> {
                 }
                 configureAndroidCommon(target)
             }
+
+            registerShadowedCodecImportsCheck()
         }
     }
 }

@@ -33,6 +33,8 @@ class KotlinJvmConventionPlugin : Plugin<Project> {
                 maxHeapSize = "2g"
             }
 
+            registerShadowedCodecImportsCheck()
+
             val verifyPureJvm = tasks.register("verifyPureJvm") {
                 group = "verification"
                 description =

@@ -144,7 +144,19 @@ lowercase hex). `digest.Blake3` stays with commons-codec because the framework
 jar has no copy of it to shadow — proven by the same on-device test, which now
 guards this whole startup path. Rule going forward: nothing in the app may
 depend on commons-codec classes that also exist in the legacy framework jar
-(`binary.*`, `digest.DigestUtils`, `language.*`, `net.*`).
+(`binary.*`, `digest.DigestUtils`, `language.*`, `net.*`). Since 2026-08-18
+this is build-enforced: `verifyNoShadowedCodecImports` (registered by every
+convention plugin, wired into `check`) fails the build on any such import,
+with the failure message explaining the shadowing.
+
+### D20-note. Golden vectors freeze the canonical encoding
+
+`GoldenVectorsTest` in `:core:domain` pins the exact canonical encoding string,
+the BLAKE3 op id, and a full ledger fold's `canonicalBytes()` against constants
+generated once from M2 behavior. Any drift fails with an explicit "this breaks
+sync with all previously released versions" message. The constants are the
+compatibility contract; they are never regenerated to make a failing build
+pass — an intentional format change bumps `dibs-op-v1` and ships a migration.
 
 ## M0 — Foundation
 

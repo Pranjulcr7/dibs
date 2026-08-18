@@ -23,6 +23,7 @@ import org.apache.commons.codec.digest.Blake3
  *   hashed the second op would collide with the first and vanish under set
  *   union.
  */
+@Suppress("TooManyFunctions") // one small encoder per canonical-format element
 object OpFactory {
 
     private const val FORMAT_VERSION = "dibs-op-v1"
@@ -49,18 +50,33 @@ object OpFactory {
         wallClockMillis: Long,
         payload: OpPayload,
     ): OpId {
-        val canonical = buildString {
-            str(FORMAT_VERSION)
-            str(groupId.value)
-            str(deviceId.value)
-            num(lamport)
-            num(wallClockMillis)
-            list(parents.map { it.value }.sorted()) { str(it) }
-            payload(payload)
-        }
+        val canonical = canonicalEncoding(groupId, deviceId, lamport, parents, wallClockMillis, payload)
         val hash = ByteArray(HASH_LENGTH_BYTES)
         Blake3.initHash().update(canonical.toByteArray(Charsets.UTF_8)).doFinalize(hash)
         return OpId(hash.toLowercaseHex())
+    }
+
+    /**
+     * The exact byte layout op ids are hashed over. Internal so the golden-vector
+     * test can pin it byte for byte — any drift here silently changes every op id
+     * and breaks sync with released versions, so it must fail a test, not a user.
+     */
+    @Suppress("LongParameterList") // the six fields of an Op are one cohesive record
+    internal fun canonicalEncoding(
+        groupId: GroupId,
+        deviceId: DeviceId,
+        lamport: Long,
+        parents: Set<OpId>,
+        wallClockMillis: Long,
+        payload: OpPayload,
+    ): String = buildString {
+        str(FORMAT_VERSION)
+        str(groupId.value)
+        str(deviceId.value)
+        num(lamport)
+        num(wallClockMillis)
+        list(parents.map { it.value }.sorted()) { str(it) }
+        payload(payload)
     }
 
     private const val HASH_LENGTH_BYTES = 32

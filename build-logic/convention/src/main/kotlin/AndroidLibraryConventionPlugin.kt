@@ -18,6 +18,8 @@ class AndroidLibraryConventionPlugin : Plugin<Project> {
                 }
                 configureAndroidCommon(target)
             }
+
+            registerShadowedCodecImportsCheck()
         }
     }
 }
