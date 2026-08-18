@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: Apache-2.0
+package app.dibs.core.data.ledger
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import app.cash.turbine.test
+import app.dibs.core.data.db.DibsDatabase
+import app.dibs.core.domain.ledger.DeviceId
+import app.dibs.core.domain.ledger.ExpenseEdit
+import app.dibs.core.domain.ledger.ExpenseFields
+import app.dibs.core.domain.ledger.GroupLedger
+import app.dibs.core.domain.ledger.OpPayload
+import app.dibs.core.domain.model.ExpenseId
+import app.dibs.core.domain.model.GroupId
+import app.dibs.core.domain.model.MemberId
+import app.dibs.core.domain.money.CurrencyCode
+import app.dibs.core.domain.money.Money
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertArrayEquals
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class LedgerRepositoryTest {
+
+    private val group = GroupId("11111111-0000-4000-8000-000000000000")
+    private val localDevice = DeviceId("aa000000-0000-4000-8000-000000000000")
+    private val remoteDevice = DeviceId("bb000000-0000-4000-8000-000000000000")
+    private val alice = MemberId("0a000000-0000-4000-8000-000000000001")
+    private val bob = MemberId("0b000000-0000-4000-8000-000000000002")
+
+    private lateinit var db: DibsDatabase
+    private lateinit var repository: LedgerRepository
+
+    @Before
+    fun setUp() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        db = Room.inMemoryDatabaseBuilder(context, DibsDatabase::class.java)
+            .allowMainThreadQueries()
+            .build()
+        repository = LedgerRepository(db, localDevice)
+    }
+
+    @After
+    fun tearDown() {
+        db.close()
+    }
+
+    private fun expensePayload(id: ExpenseId, totalMinor: Long) = OpPayload.AddExpense(
+        expenseId = id,
+        expense = ExpenseFields(
+            description = "test",
+            currency = CurrencyCode("USD"),
+            total = Money(totalMinor),
+            paidBy = mapOf(alice to Money(totalMinor)),
+            owedBy = mapOf(alice to Money(totalMinor / 2), bob to Money(totalMinor - totalMinor / 2)),
+            dateEpochDay = 20_000,
+        ),
+    )
+
+    @Test
+    fun `given local appends when persisted then lamport and parents chain like the domain ledger`() = runTest {
+        val first = repository.append(group, OpPayload.AddMember(alice, "Alice"), wallClockMillis = 1)
+        val second = repository.append(group, OpPayload.AddMember(bob, "Bob"), wallClockMillis = 2)
+
+        assertEquals(1, first.lamport)
+        assertEquals(2, second.lamport)
+        assertEquals(emptySet<Any>(), first.parents)
+        assertEquals(setOf(first.id), second.parents)
+        assertEquals(2, db.opDao().countForGroup(group.value))
+    }
+
+    @Test
+    fun `given ingested remote ops when folded then repository state matches a pure domain fold of the same ops`() = runTest {
+        val remote = GroupLedger(group, remoteDevice)
+        remote.append(OpPayload.AddMember(alice, "Alice"), 1)
+        remote.append(OpPayload.AddMember(bob, "Bob"), 2)
+        remote.append(expensePayload(ExpenseId("e1"), 1000), 3)
+
+        repository.ingest(group, remote.log.all)
+
+        assertArrayEquals(remote.state().canonicalBytes(), repository.state(group).canonicalBytes())
+    }
+
+    @Test
+    fun `given duplicate ingest when folded then nothing changes`() = runTest {
+        val remote = GroupLedger(group, remoteDevice)
+        remote.append(OpPayload.AddMember(alice, "Alice"), 1)
+        repository.ingest(group, remote.log.all)
+        val before = repository.state(group).canonicalBytes()
+
+        repository.ingest(group, remote.log.all)
+        repository.ingest(group, remote.log.all)
+
+        assertArrayEquals(before, repository.state(group).canonicalBytes())
+        assertEquals(1, db.opDao().countForGroup(group.value))
+    }
+
+    @Test
+    fun `given ops arriving in causal order then the fold is incremental, and an earlier-sorting late arrival forces a full refold`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        repository.append(group, OpPayload.AddMember(bob, "Bob"), 2)
+        val incrementalBefore = repository.diagnostics.incrementalFolds
+        repository.append(group, expensePayload(ExpenseId("e1"), 1000), 3)
+        assertEquals(incrementalBefore + 1, repository.diagnostics.incrementalFolds)
+
+        // A remote op with lamport 1 sorts before everything local: suffix fold impossible.
+        val remote = GroupLedger(group, remoteDevice)
+        val early = remote.append(OpPayload.AddMember(MemberId("0c000000-0000-4000-8000-000000000003"), "Carol"), 1)
+        val fullBefore = repository.diagnostics.fullRefolds
+        repository.ingest(group, listOf(early))
+        assertEquals(fullBefore + 1, repository.diagnostics.fullRefolds)
+
+        // Either path must land on the same state as a from-scratch fold.
+        val reference = GroupLedger(group, remoteDevice)
+        reference.receive(repository.allOps(group))
+        assertArrayEquals(reference.state().canonicalBytes(), repository.state(group).canonicalBytes())
+    }
+
+    @Test
+    fun `given a repository reopened over the same database then it folds the persisted ops to the same state`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        repository.append(
+            group,
+            expensePayload(ExpenseId("e1"), 500).let {
+                // expense referencing bob who is unknown -> quarantined, still persisted
+                it
+            },
+            2,
+        )
+        val before = repository.state(group).canonicalBytes()
+
+        val reopened = LedgerRepository(db, localDevice)
+        assertArrayEquals(before, reopened.state(group).canonicalBytes())
+    }
+
+    @Test
+    fun `given observers on the state flow then every append and ingest emits the new fold`() = runTest {
+        // The flow is a conflating StateFlow: intermediate states may be skipped,
+        // so assertions await each monotonic milestone rather than exact frames.
+        repository.observeState(group).test {
+            suspend fun awaitMemberCount(expected: Int) {
+                while (awaitItem().members.size != expected) {
+                    // keep consuming until the fold containing the change arrives
+                }
+            }
+
+            repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+            awaitMemberCount(1)
+
+            repository.append(group, OpPayload.AddMember(bob, "Bob"), 2)
+            awaitMemberCount(2)
+
+            val remote = GroupLedger(group, remoteDevice)
+            val op = remote.append(OpPayload.AddMember(MemberId("0c000000-0000-4000-8000-000000000003"), "Carol"), 3)
+            repository.ingest(group, listOf(op))
+            awaitMemberCount(3)
+
+            cancelAndConsumeRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `given a fold then the materialized tables mirror the state for direct queries`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        repository.append(group, OpPayload.AddMember(bob, "Bob"), 2)
+        repository.append(group, expensePayload(ExpenseId("e1"), 1000), 3)
+        repository.append(group, OpPayload.EditExpense(ExpenseId("e1"), ExpenseEdit(description = "edited")), 4)
+        repository.append(group, OpPayload.DeleteExpense(ExpenseId("e1")), 5)
+
+        val members = db.stateDao().membersForGroup(group.value)
+        assertEquals(listOf("Alice", "Bob"), members.map { it.name })
+        val expenses = db.stateDao().expensesForGroup(group.value)
+        assertEquals(1, expenses.size)
+        assertTrue(expenses.single().deleted)
+    }
+
+    @Test
+    fun `given ops with missing parents then they persist and are reported pending until the parents arrive`() = runTest {
+        val remote = GroupLedger(group, remoteDevice)
+        val parent = remote.append(OpPayload.AddMember(alice, "Alice"), 1)
+        val child = remote.append(OpPayload.AddMember(bob, "Bob"), 2)
+
+        repository.ingest(group, listOf(child))
+        assertEquals(1, repository.pendingCount(group))
+        assertEquals(0, repository.state(group).members.size)
+
+        repository.ingest(group, listOf(parent))
+        assertEquals(0, repository.pendingCount(group))
+        assertEquals(2, repository.state(group).members.size)
+    }
+}
