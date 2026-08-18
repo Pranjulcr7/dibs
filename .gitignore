@@ -25,3 +25,4 @@ model/data/
 
 # Stray local tooling state
 ~/
+build-logic/.kotlin/
