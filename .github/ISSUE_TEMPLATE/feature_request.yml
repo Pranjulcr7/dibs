@@ -1,0 +1,22 @@
+name: Feature request
+description: Suggest an improvement or new capability
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation where you missed this feature.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: >
+        Note: Dibs is local-first by design. Servers, accounts, payment processing,
+        ads, and analytics are permanently out of scope (see CLAUDE.md).
