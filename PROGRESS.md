@@ -1,5 +1,61 @@
 # PROGRESS
 
+## 2026-08-18 — M5 complete (scoped: no VLM)
+
+`./gradlew check` green. Scope per SPEC §7 as revised: the VLM tier is dropped
+entirely; ML Kit + the rule-based layout parser is the shipping path, and
+manual line-item entry remains the primary path (one tap: FAB → itemized) —
+scanning is an accelerator behind the group menu, never a gatekeeper.
+
+- **Rule-based layout parser** (`:core:domain`, pure JVM): rows by vertical
+  overlap; prices only in the right-aligned price column (a bare quantity "2"
+  can never become $2); quantity prefixes ("2 x", "QTY 3"); keyword
+  classification with subtotal/tax/tip/total, discounts as negative items,
+  and payment rows ignored; the 0.02 arithmetic gate flags mismatches
+  (edges 39/40) and never blocks; total-only receipts degrade to a single
+  amount (edge 43); unreadable regions flag for manual entry (edge 36);
+  multi-frame merge with boundary dedupe (edge 35); parsed-content
+  fingerprints for same-receipt detection (edge 47).
+- **ML Kit tier** (`:core:ocr`): bundled on-device Latin recognition (edge 38
+  documented) behind an `OcrEngine` seam; 10s hard timeout (edge 46); engine
+  failures degrade to "nothing found", never crash. The app runs on
+  `NoOpReceiptParser` if the module's DI is dropped.
+- **Scan flow** (`:feature:scan`): CameraX with guide frame + hints, gallery
+  import, multi-frame; camera denial leaves gallery and manual entry
+  (edge 33). Mandatory review (FR-R3) re-runs the gate on every edit, tip
+  always editable (edge 42), duplicate-receipt warning. Approval prefills the
+  itemized editor — assignment (incl. fractional consumption) is the same UI
+  as manual entry. Receipt photo stored app-private, named by fingerprint.
+- **Layout corpus** (`model/`): download-only scripts for CORD (CC BY-SA) and
+  SROIE (MIT); images never committed. JVM harness feeds ground-truth boxes
+  into the rule parser. Rates over 100 receipts each:
+
+  | corpus | items found | total found | total == labeled |
+  |---|---|---|---|
+  | CORD | 99.0% | 83.0% | 79.8% |
+  | SROIE | 62.0% | 64.0% | 52.6% |
+
+  **Caveat (per SPEC §7):** these are scanned Southeast Asian receipts and do
+  not predict performance on photographed Western receipts; the numbers are a
+  layout-rule lower bound used to find bugs. The corpus already earned its
+  keep: it exposed that the original two-decimal price rule read zero-decimal
+  currency receipts (IDR/JPY-style) as having no prices at all (CORD items
+  found was 6% before integer mode), and surfaced the discount-after-subtotal
+  shape.
+- Edges 44/45 (VLM download interruption / insufficient RAM) are obsolete
+  with the VLM tier dropped — nothing is ever downloaded.
+- Tests: 22 parser unit tests (edges named), 5 ML Kit wrapper tests, 5 scan
+  ViewModel tests, 2 editor hand-off tests; corpus harness skips unless
+  `DIBS_RECEIPT_CORPUS` is set.
+
+### Deferred / notes
+
+- FR-T4 collapses to nothing (single tier). FR-T5 (storage breakdown, clear
+  receipt images) deferred; tracked for a follow-up settings pass.
+- On-device verification of the camera flow is pending the phone reconnect,
+  together with the 3c/3d/M4 installs.
+
+
 ## 2026-08-18 — M4 complete: import, export, backup
 
 `./gradlew check` green. **Install to the phone pending — device disconnected;

@@ -305,6 +305,32 @@ FR-I5 needs "changed since last backup". The log is append-only, so the total
 op count moving is exactly equivalent to a change — no dirty flags to keep in
 sync, no content hashing, no clock beyond the 30-day staleness check.
 
+## M5 — Receipt scanning (scoped)
+
+### D37. Price detection is two-pass: strict decimals, then integer mode
+
+Prices must print exactly two decimals ("12.34") — the cheapest defense
+against quantities and dates becoming money. Zero-decimal currencies never
+print cents, so when a receipt yields fewer than two decimal prices the
+parser re-reads it in integer mode (grouped "25,000"/"60.000", or bare
+integers of ≥3 digits). Inference is per receipt, so decimal receipts can
+never regress. Found by the CORD corpus: before this, IDR receipts parsed as
+having no prices at all.
+
+### D38. Scanning is an accelerator, not an entry point of its own
+
+Manual entry keeps the one-tap FAB (FR-R8); "Scan receipt" lives in the group
+overflow menu and every scan failure routes to gallery or manual entry. The
+reviewed result is handed to the same itemized editor manual entry uses —
+one assignment UI, not two.
+
+### D39. Receipt images are named by parse fingerprint
+
+The stored photo's filename is BLAKE3 over the normalized parsed content
+(labels, amounts, totals). That one choice gives edge 47 for free: scanning
+the same paper twice produces the same fingerprint, so "already added?" is a
+prefix check over `receiptRef`, with no image hashing and no new op fields.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36
