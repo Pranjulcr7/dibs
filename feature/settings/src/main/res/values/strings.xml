@@ -14,6 +14,21 @@
     <string name="onboarding_page_of">Page %1$d of %2$d</string>
 
     <string name="settings_title">Settings</string>
-    <string name="settings_placeholder_body">Theme, currency, backups, and app lock arrive as the app grows. Nothing to configure yet.</string>
+    <string name="settings_section_appearance">Appearance</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_dynamic_color">Dynamic color</string>
+    <string name="settings_section_defaults">Defaults</string>
+    <string name="settings_display_name">Your name</string>
+    <string name="settings_default_currency">Default currency</string>
+    <string name="settings_section_privacy">Privacy &amp; security</string>
+    <string name="settings_app_lock">App lock</string>
+    <string name="settings_app_lock_hint">Ask for your fingerprint or screen lock when opening Dibs.</string>
+    <string name="settings_block_screenshots">Block screenshots</string>
+    <string name="settings_block_screenshots_hint">Hides Dibs content in screenshots and the recents screen.</string>
+    <string name="settings_section_about">About</string>
+    <string name="settings_version">Version %1$s</string>
+    <string name="settings_license">Apache-2.0 · source on GitHub</string>
     <string name="settings_about_privacy">Dibs collects nothing. Your data lives on this phone and never leaves it unless you share it.</string>
 </resources>

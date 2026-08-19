@@ -42,7 +42,7 @@ import app.dibs.feature.groups.GroupsRoute
 import app.dibs.feature.groups.create.CreateGroupRoute
 import app.dibs.feature.groups.detail.GroupDetailRoute
 import app.dibs.feature.groups.members.MembersRoute
-import app.dibs.feature.settings.SettingsScreen
+import app.dibs.feature.settings.SettingsRoute
 import app.dibs.feature.settings.onboarding.OnboardingRoute
 import kotlinx.coroutines.launch
 
@@ -58,19 +58,23 @@ private enum class HomeTab(@StringRes val label: Int, val icon: ImageVector) {
  * navigation event to lose on process death (edge 61 mindset from day one).
  */
 @Composable
-fun DibsApp(settings: UserSettings) {
+fun DibsApp(settings: UserSettings, initialRoute: String? = null) {
     DibsTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
         if (!settings.onboardingComplete) {
             OnboardingRoute(onDone = {})
         } else {
-            DibsNavHost()
+            DibsNavHost(initialRoute)
         }
     }
 }
 
 @Composable
-private fun DibsNavHost() {
+private fun DibsNavHost(initialRoute: String? = null) {
     val navController = rememberNavController()
+    // A recurring-expense notification lands here with a prefilled-editor route.
+    androidx.compose.runtime.LaunchedEffect(initialRoute) {
+        if (initialRoute != null) navController.navigate(initialRoute)
+    }
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             HomeScaffold(
@@ -203,7 +207,7 @@ private fun HomeScaffold(
                 onOpenExpense = onOpenExpense,
                 modifier = contentModifier,
             )
-            HomeTab.SETTINGS -> SettingsScreen(modifier = contentModifier)
+            HomeTab.SETTINGS -> SettingsRoute(modifier = contentModifier)
         }
     }
 

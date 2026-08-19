@@ -63,4 +63,8 @@
     <string name="category_utilities">Utilities</string>
     <string name="category_entertainment">Entertainment</string>
     <string name="category_travel">Travel</string>
+    <string name="editor_repeat">Repeat</string>
+    <string name="editor_repeat_none">Doesn\'t repeat</string>
+    <string name="editor_repeat_weekly">Weekly</string>
+    <string name="editor_repeat_monthly">Monthly</string>
 </resources>

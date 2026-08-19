@@ -24,12 +24,30 @@ sealed interface MainUiState {
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsStore: SettingsStore,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
     val uiState: StateFlow<MainUiState> = settingsStore.settings
         .map<UserSettings, MainUiState>(MainUiState::Ready)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), MainUiState.Loading)
+
+    /** FR-T3 app-lock gate: locked from cold start and after backgrounding. */
+    private val _locked = kotlinx.coroutines.flow.MutableStateFlow(true)
+    val locked: StateFlow<Boolean> = _locked
+
+    fun unlock() {
+        _locked.value = false
+    }
+
+    fun onBackgrounded() {
+        _locked.value = true
+    }
+
+    /** Prompt only when the lock is enabled and currently engaged. */
+    fun shouldPromptUnlock(): Boolean {
+        val settings = (uiState.value as? MainUiState.Ready)?.settings ?: return false
+        return settings.appLockEnabled && _locked.value
+    }
 
     private companion object {
         const val STOP_TIMEOUT_MILLIS = 5_000L

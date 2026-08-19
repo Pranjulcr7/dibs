@@ -11,4 +11,10 @@
     <string name="quick_add_one_off_name">One-off</string>
     <string name="quick_add_just_once">Just this once</string>
     <string name="quick_add_self_fallback">You</string>
+    <string name="app_lock_title">Unlock Dibs</string>
+    <string name="app_lock_unlock">Unlock</string>
+    <string name="recurring_channel_name">Recurring expenses</string>
+    <string name="recurring_notification_title">Time to log “%1$s”</string>
+    <string name="recurring_notification_body">Tap to review and save it — nothing is added automatically.</string>
+    <string name="recurring_fallback_title">a recurring expense</string>
 </resources>

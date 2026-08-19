@@ -49,6 +49,8 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.hilt.navigation.compose)
+    implementation(libs.androidx.biometric)
+    implementation(libs.androidx.work.runtime)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)

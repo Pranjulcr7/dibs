@@ -79,6 +79,8 @@ data class EditorDraft(
     val items: List<ItemDraft> = emptyList(),
     val taxText: String = "",
     val tipText: String = "",
+    /** FR-E7: reminder period in days (7, 30) — device-local rule, not part of the op. */
+    val repeatDays: Int? = null,
 )
 
 @Serializable
@@ -150,7 +152,7 @@ data class EditorUiState(
 class ExpenseEditorViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val ledger: Ledger,
-    settingsStore: SettingsStore,
+    private val settingsStore: SettingsStore,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]) { "groupId nav argument missing" })
@@ -256,7 +258,21 @@ class ExpenseEditorViewModel @Inject constructor(
             )
             val existing = original
             if (existing == null) {
-                ledger.append(groupId, OpPayload.AddExpense(ExpenseId(UUID.randomUUID().toString()), fields))
+                val newId = ExpenseId(UUID.randomUUID().toString())
+                ledger.append(groupId, OpPayload.AddExpense(newId, fields))
+                draft.repeatDays?.let { period ->
+                    settingsStore.update {
+                        it.copy(
+                            recurringRules = it.recurringRules + app.dibs.core.domain.settings.RecurringRule(
+                                id = UUID.randomUUID().toString(),
+                                groupId = groupId,
+                                templateExpenseId = newId,
+                                periodDays = period,
+                                nextDueEpochDay = draft.dateEpochDay + period,
+                            ),
+                        )
+                    }
+                }
             } else {
                 val edit = diff(existing.fields, fields)
                 if (edit != ExpenseEdit()) ledger.append(groupId, OpPayload.EditExpense(existing.id, edit))

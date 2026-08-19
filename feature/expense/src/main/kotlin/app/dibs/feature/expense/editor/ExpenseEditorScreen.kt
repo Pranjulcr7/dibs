@@ -247,6 +247,34 @@ fun ExpenseEditorScreen(
                 ParticipantsEditor(uiState.members, draft, uiState.mode, onDraftChange)
             }
 
+            if (!uiState.isEdit) {
+                Column {
+                    Text(stringResource(R.string.editor_repeat), style = MaterialTheme.typography.labelLarge)
+                    androidx.compose.foundation.layout.Spacer(Modifier.height(Dimens.spacingXs))
+                    val notifPermission = androidx.activity.compose.rememberLauncherForActivityResult(
+                        androidx.activity.result.contract.ActivityResultContracts.RequestPermission(),
+                    ) { }
+                    Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
+                        listOf(
+                            null to R.string.editor_repeat_none,
+                            REPEAT_WEEKLY to R.string.editor_repeat_weekly,
+                            REPEAT_MONTHLY to R.string.editor_repeat_monthly,
+                        ).forEach { (days, label) ->
+                            FilterChip(
+                                selected = draft.repeatDays == days,
+                                onClick = {
+                                    onDraftChange { it.copy(repeatDays = days) }
+                                    if (days != null && android.os.Build.VERSION.SDK_INT >= NOTIF_PERMISSION_SDK) {
+                                        notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                },
+                                label = { Text(stringResource(label)) },
+                            )
+                        }
+                    }
+                }
+            }
+
             OutlinedTextField(
                 value = draft.note,
                 onValueChange = { text -> onDraftChange { it.copy(note = text) } },
@@ -301,3 +329,6 @@ private fun ExpenseEvent.Kind.labelRes(): Int = when (this) {
 }
 
 private const val MILLIS_PER_DAY = 86_400_000L
+private const val REPEAT_WEEKLY = 7
+private const val REPEAT_MONTHLY = 30
+private const val NOTIF_PERMISSION_SDK = 33

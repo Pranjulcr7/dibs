@@ -2,6 +2,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Only for FR-E7 recurring-expense reminders; requested at rule creation. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:name=".DibsApplication"
         android:allowBackup="false"

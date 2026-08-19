@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.core.domain.settings
 
+import app.dibs.core.domain.model.ExpenseId
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
@@ -34,7 +35,45 @@ data class UserSettings(
      * mapping never belongs in shared state (DECISIONS.md D23).
      */
     val selfMembers: Map<GroupId, MemberId> = emptyMap(),
+    /** FR-T3: biometric/credential gate on app open. */
+    val appLockEnabled: Boolean = false,
+    /** Edge 73: FLAG_SECURE, opt-in. */
+    val blockScreenshots: Boolean = false,
+    /**
+     * FR-E7 recurrence rules — device-local reminders (D33): a rule prompts a
+     * notification that opens a prefilled editor; nothing is ever auto-created.
+     */
+    val recurringRules: List<RecurringRule> = emptyList(),
 )
+
+@Serializable
+data class RecurringRule(
+    val id: String,
+    val groupId: GroupId,
+    val templateExpenseId: ExpenseId,
+    val periodDays: Int,
+    val nextDueEpochDay: Long,
+)
+
+/** Pure due-rule math so the WorkManager worker stays a thin shell. */
+object RecurringRules {
+
+    /** Rules due on or before [todayEpochDay]. */
+    fun due(rules: List<RecurringRule>, todayEpochDay: Long): List<RecurringRule> =
+        rules.filter { it.nextDueEpochDay <= todayEpochDay }
+
+    /** Advances fired rules past today; a long-dead app catches up without stacking prompts. */
+    fun advance(rules: List<RecurringRule>, firedIds: Set<String>, todayEpochDay: Long): List<RecurringRule> =
+        rules.map { rule ->
+            if (rule.id in firedIds) {
+                var next = rule.nextDueEpochDay
+                while (next <= todayEpochDay) next += rule.periodDays
+                rule.copy(nextDueEpochDay = next)
+            } else {
+                rule
+            }
+        }
+}
 
 /**
  * Read/update access to [UserSettings]. An interface so features stay off the

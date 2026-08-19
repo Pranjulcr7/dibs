@@ -5,4 +5,9 @@ import android.app.Application
 import dagger.hilt.android.HiltAndroidApp
 
 @HiltAndroidApp
-class DibsApplication : Application()
+class DibsApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        RecurringWorker.schedule(this)
+    }
+}

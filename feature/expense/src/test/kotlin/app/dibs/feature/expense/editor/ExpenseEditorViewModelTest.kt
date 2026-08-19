@@ -298,6 +298,30 @@ class ExpenseEditorViewModelTest {
     }
 
     @Test
+    fun `given a repeat choice when saved then a device-local recurring rule is created against the new expense`() = runTest(dispatcher) {
+        seedGroup()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.updateDraft {
+            it.copy(
+                amountText = "12.00",
+                description = "Rent",
+                mode = "equal",
+                participants = setOf(alice.value, bob.value),
+                dateEpochDay = 20_000,
+                repeatDays = 30,
+            )
+        }
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val rule = settings.state.value.recurringRules.single()
+        assertEquals(30, rule.periodDays)
+        assertEquals(20_030L, rule.nextDueEpochDay)
+        assertEquals(ledger.state(groupId).expenses.keys.single(), rule.templateExpenseId)
+    }
+
+    @Test
     fun `given a blank description or unparsable amount then save is disabled`() = runTest(dispatcher) {
         seedGroup()
         val vm = viewModel()
