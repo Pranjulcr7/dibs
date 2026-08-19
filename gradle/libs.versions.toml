@@ -18,6 +18,8 @@ coroutines = "1.10.2"
 robolectric = "4.14.1"
 commonsCodec = "1.17.1"
 eddsa = "0.3.0"
+tink = "1.12.0"
+bouncycastle = "1.78.1"
 turbine = "1.2.0"
 junit4 = "4.13.2"
 androidxTestCore = "1.6.1"
@@ -58,6 +60,8 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 commons-codec = { group = "commons-codec", name = "commons-codec", version.ref = "commonsCodec" }
 eddsa = { group = "net.i2p.crypto", name = "eddsa", version.ref = "eddsa" }
+tink = { group = "com.google.crypto.tink", name = "tink", version.ref = "tink" }
+bouncycastle = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 junit4 = { group = "junit", name = "junit", version.ref = "junit4" }

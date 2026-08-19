@@ -35,6 +35,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.androidx.datastore)
+    implementation(libs.tink)
+    implementation(libs.bouncycastle)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)

@@ -44,6 +44,9 @@ data class UserSettings(
      * notification that opens a prefilled editor; nothing is ever auto-created.
      */
     val recurringRules: List<RecurringRule> = emptyList(),
+    /** FR-I5 backup-reminder bookkeeping; 0/null = never backed up. */
+    val lastBackupAtMillis: Long? = null,
+    val backedUpOpCount: Long = 0,
 )
 
 @Serializable

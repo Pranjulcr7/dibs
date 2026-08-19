@@ -22,7 +22,12 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Qualifier
 import javax.inject.Singleton
+
+@Qualifier
+@Retention(AnnotationRetention.BINARY)
+annotation class MasterKey
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -57,19 +62,30 @@ object DataModule {
     fun ledger(repository: LedgerRepository): Ledger = repository
 
     // The master key behind identity + transport derivation (SPEC §5.9), wrapped
-    // by the Keystore exactly like the database passphrase. Included in backups
-    // from M4 on — restoring it restores the same identity everywhere.
+    // by the Keystore exactly like the database passphrase; carried inside
+    // encrypted backups so restore restores the identity (D25).
     @Provides
     @Singleton
-    fun identitySource(@ApplicationContext context: Context): IdentitySource {
-        val store = WrappedPassphraseStore(
-            file = context.filesDir.resolve("dibs-master.key"),
-            cipher = AndroidKeystoreCipher(),
-        )
-        return object : IdentitySource {
-            override suspend fun keyPair() = Identity.keyPairFromMaster(store.getOrCreatePassphrase())
-        }
+    @MasterKey
+    fun masterKeyStore(@ApplicationContext context: Context): WrappedPassphraseStore = WrappedPassphraseStore(
+        file = context.filesDir.resolve("dibs-master.key"),
+        cipher = AndroidKeystoreCipher(),
+    )
+
+    @Provides
+    @Singleton
+    fun identitySource(@MasterKey store: WrappedPassphraseStore): IdentitySource = object : IdentitySource {
+        override suspend fun keyPair() = Identity.keyPairFromMaster(store.getOrCreatePassphrase())
     }
+
+    @Provides
+    @Singleton
+    fun backupService(
+        repository: LedgerRepository,
+        settingsStore: SettingsStore,
+        @MasterKey masterKeyStore: WrappedPassphraseStore,
+    ): app.dibs.core.domain.ledger.BackupService =
+        app.dibs.core.data.backup.DefaultBackupService(repository, settingsStore, masterKeyStore)
 
     @Provides
     @Singleton

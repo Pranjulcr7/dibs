@@ -51,6 +51,18 @@ class WrappedPassphraseStore(
         return passphrase
     }
 
+    /**
+     * Adopts [secret] only when none exists yet — backup restore must never
+     * overwrite a live identity's master key (it would orphan its claims).
+     * Returns true when adopted.
+     */
+    fun adoptIfAbsent(secret: ByteArray): Boolean {
+        if (file.isFile) return false
+        file.parentFile?.mkdirs()
+        file.writeBytes(cipher.wrap(secret))
+        return true
+    }
+
     private companion object {
         const val PASSPHRASE_LENGTH_BYTES = 32
     }
