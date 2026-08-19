@@ -33,12 +33,12 @@ Trashed expenses hide after 30 days, but the row doesn't say when. Compute the
 remaining days from the deletion timestamp already exposed by `TrashViewModel`
 and show "hides in N days". Watch the singular/plural.
 
-### 5. Add previews for the import wizard screens [good first issue] [ui]
+### 5. Landscape layout for the scan capture screen [good first issue] [ui]
 
-`ImportScreen.kt` has no `@Preview`s yet. Every screen is supposed to have
-light, dark, and large-font previews (see `GroupsScreen.kt` for the pattern).
-The mapping and preview steps just need small fake `SplitwiseCsv.Result`
-fixtures.
+Receipts are tall; phones held sideways get a squashed preview. Give the
+capture screen a landscape variant where the camera preview and the buttons
+sit side by side. CameraX handles rotation already — this is pure Compose
+layout.
 
 ### 6. Group emoji picker instead of a free-text field [good first issue] [ui]
 

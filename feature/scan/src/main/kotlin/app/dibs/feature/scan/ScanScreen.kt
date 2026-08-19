@@ -116,7 +116,15 @@ fun ScanRoute(
             }
             is ScanStep.Review -> ReviewStep(
                 review = current,
-                viewModel = viewModel,
+                actions = ReviewActions(
+                    onItemLabel = viewModel::updateItemLabel,
+                    onItemAmount = viewModel::updateItemAmount,
+                    onRemoveItem = viewModel::removeItem,
+                    onAddItem = viewModel::addItem,
+                    onTax = viewModel::setTax,
+                    onTip = viewModel::setTip,
+                    onTotal = viewModel::setTotal,
+                ),
                 onUse = {
                     // FR-E8: the photo stays in app-private storage; its name
                     // is the parse fingerprint, which is also the edge-47 key.
@@ -291,10 +299,21 @@ private fun CameraCapture(onCaptured: (ByteArray) -> Unit, modifier: Modifier = 
     }
 }
 
+/** Review-edit callbacks, bundled so the screen stays previewable without a ViewModel. */
+data class ReviewActions(
+    val onItemLabel: (Int, String) -> Unit = { _, _ -> },
+    val onItemAmount: (Int, Long) -> Unit = { _, _ -> },
+    val onRemoveItem: (Int) -> Unit = {},
+    val onAddItem: () -> Unit = {},
+    val onTax: (Long?) -> Unit = {},
+    val onTip: (Long?) -> Unit = {},
+    val onTotal: (Long?) -> Unit = {},
+)
+
 @Composable
 private fun ReviewStep(
     review: ScanStep.Review,
-    viewModel: ScanViewModel,
+    actions: ReviewActions,
     onUse: () -> Unit,
     onManualEntry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -328,7 +347,7 @@ private fun ReviewStep(
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = item.label,
-                    onValueChange = { viewModel.updateItemLabel(index, it) },
+                    onValueChange = { actions.onItemLabel(index, it) },
                     label = { Text(stringResource(R.string.review_item_label)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
@@ -338,10 +357,10 @@ private fun ReviewStep(
                     minor = item.totalMinor,
                     currency = currency,
                     label = stringResource(R.string.review_item_amount),
-                    onMinorChange = { viewModel.updateItemAmount(index, it ?: 0) },
+                    onMinorChange = { actions.onItemAmount(index, it ?: 0) },
                     modifier = Modifier.weight(MONEY_FIELD_WEIGHT),
                 )
-                IconButton(onClick = { viewModel.removeItem(index) }) {
+                IconButton(onClick = { actions.onRemoveItem(index) }) {
                     Icon(
                         Icons.Filled.Delete,
                         contentDescription = stringResource(R.string.review_item_delete),
@@ -349,7 +368,7 @@ private fun ReviewStep(
                 }
             }
         }
-        TextButton(onClick = viewModel::addItem, modifier = Modifier.testTag("review-add-item")) {
+        TextButton(onClick = actions.onAddItem, modifier = Modifier.testTag("review-add-item")) {
             Text(stringResource(R.string.review_add_item))
         }
 
@@ -358,21 +377,21 @@ private fun ReviewStep(
                 minor = draft.taxMinor,
                 currency = currency,
                 label = stringResource(R.string.review_tax),
-                onMinorChange = viewModel::setTax,
+                onMinorChange = actions.onTax,
                 modifier = Modifier.weight(1f),
             )
             MoneyField(
                 minor = draft.tipMinor,
                 currency = currency,
                 label = stringResource(R.string.review_tip),
-                onMinorChange = viewModel::setTip,
+                onMinorChange = actions.onTip,
                 modifier = Modifier.weight(1f),
             )
             MoneyField(
                 minor = draft.totalMinor,
                 currency = currency,
                 label = stringResource(R.string.review_total),
-                onMinorChange = viewModel::setTotal,
+                onMinorChange = actions.onTotal,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -447,3 +466,70 @@ private fun MoneyField(
 }
 
 private const val MONEY_FIELD_WEIGHT = 0.7f
+
+// -- previews ----------------------------------------------------------------
+
+private val previewReview = ScanStep.Review(
+    draft = app.dibs.core.domain.receipt.ReceiptDraft(
+        items = listOf(
+            app.dibs.core.domain.receipt.ReceiptItem("Latte", 2, 900),
+            app.dibs.core.domain.receipt.ReceiptItem("Bagel", 1, 325),
+        ),
+        taxMinor = 98,
+        totalMinor = 1400,
+        gatePassed = false,
+        flags = setOf(ReceiptFlag.ARITHMETIC_MISMATCH),
+    ),
+    looksAlreadyAdded = false,
+    fingerprint = "deadbeef",
+    currency = CurrencyCode("USD"),
+)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Review light", showBackground = true)
+@Composable
+private fun ReviewPreviewLight() {
+    app.dibs.core.ui.theme.DibsTheme {
+        ReviewStep(review = previewReview, actions = ReviewActions(), onUse = {}, onManualEntry = {})
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Review dark", showBackground = true, uiMode = 0x21)
+@Composable
+private fun ReviewPreviewDark() {
+    app.dibs.core.ui.theme.DibsTheme {
+        ReviewStep(
+            review = previewReview.copy(draft = previewReview.draft.copy(gatePassed = true, flags = emptySet())),
+            actions = ReviewActions(),
+            onUse = {},
+            onManualEntry = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Review large font", showBackground = true, fontScale = 2.0f)
+@Composable
+private fun ReviewPreviewLargeFont() {
+    app.dibs.core.ui.theme.DibsTheme {
+        ReviewStep(
+            review = previewReview.copy(looksAlreadyAdded = true),
+            actions = ReviewActions(),
+            onUse = {},
+            onManualEntry = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Capture no camera", showBackground = true)
+@Composable
+private fun CapturePreviewNoPermission() {
+    app.dibs.core.ui.theme.DibsTheme {
+        CaptureStep(
+            step = ScanStep.Capture(frameCount = 1, parseFailed = ScanStep.Capture.Failure.NOTHING_FOUND),
+            onFrame = {},
+            onRemoveFrame = {},
+            onParse = {},
+            onGallery = {},
+            onManualEntry = {},
+        )
+    }
+}

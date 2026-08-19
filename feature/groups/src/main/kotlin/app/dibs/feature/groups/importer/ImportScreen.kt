@@ -104,15 +104,29 @@ fun ImportRoute(onDone: (GroupId) -> Unit, onBack: () -> Unit, viewModel: Import
                         Text(stringResource(R.string.import_pick_file))
                     }
                 }
-                is ImportStep.Mapping -> MappingStep(current, viewModel)
-                is ImportStep.Preview -> PreviewStep(current, viewModel)
+                is ImportStep.Mapping -> MappingStep(
+                    step = current,
+                    onRename = viewModel::renameMember,
+                    onChooseSelf = viewModel::chooseSelf,
+                    onContinue = viewModel::toPreview,
+                )
+                is ImportStep.Preview -> PreviewStep(
+                    step = current,
+                    onBack = viewModel::backToMapping,
+                    onConfirm = viewModel::confirm,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MappingStep(step: ImportStep.Mapping, viewModel: ImportViewModel) {
+private fun MappingStep(
+    step: ImportStep.Mapping,
+    onRename: (String, String) -> Unit,
+    onChooseSelf: (String?) -> Unit,
+    onContinue: (String) -> Unit,
+) {
     var groupName by rememberSaveable { mutableStateOf("") }
     Text(stringResource(R.string.import_mapping_title), style = MaterialTheme.typography.titleMedium)
     Text(
@@ -124,14 +138,14 @@ private fun MappingStep(step: ImportStep.Mapping, viewModel: ImportViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = step.names[original] ?: original,
-                onValueChange = { viewModel.renameMember(original, it) },
+                onValueChange = { onRename(original, it) },
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
             Spacer(Modifier.padding(Dimens.spacingXs))
             FilterChip(
                 selected = step.selfName == original,
-                onClick = { viewModel.chooseSelf(if (step.selfName == original) null else original) },
+                onClick = { onChooseSelf(if (step.selfName == original) null else original) },
                 label = { Text(stringResource(R.string.import_this_is_me)) },
             )
         }
@@ -144,7 +158,7 @@ private fun MappingStep(step: ImportStep.Mapping, viewModel: ImportViewModel) {
         modifier = Modifier.fillMaxWidth(),
     )
     Button(
-        onClick = { viewModel.toPreview(groupName) },
+        onClick = { onContinue(groupName) },
         modifier = Modifier
             .fillMaxWidth()
             .testTag("import-continue"),
@@ -154,7 +168,7 @@ private fun MappingStep(step: ImportStep.Mapping, viewModel: ImportViewModel) {
 }
 
 @Composable
-private fun PreviewStep(step: ImportStep.Preview, viewModel: ImportViewModel) {
+private fun PreviewStep(step: ImportStep.Preview, onBack: () -> Unit, onConfirm: () -> Unit) {
     Text(stringResource(R.string.import_preview_title), style = MaterialTheme.typography.titleMedium)
     Text(stringResource(R.string.import_preview_members, step.parsed.memberNames.size))
     val expenses = step.parsed.rows.count { it is SplitwiseCsv.Row.Expense }
@@ -184,15 +198,87 @@ private fun PreviewStep(step: ImportStep.Preview, viewModel: ImportViewModel) {
     }
     Spacer(Modifier.height(Dimens.spacingSm))
     Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
-        OutlinedButton(onClick = viewModel::backToMapping) {
+        OutlinedButton(onClick = onBack) {
             Text(stringResource(R.string.import_back))
         }
         Button(
-            onClick = viewModel::confirm,
+            onClick = onConfirm,
             enabled = !step.alreadyImported,
             modifier = Modifier.testTag("import-confirm"),
         ) {
             Text(stringResource(R.string.import_confirm))
+        }
+    }
+}
+
+// -- previews ----------------------------------------------------------------
+
+private val previewParsed = SplitwiseCsv.Result.Success(
+    memberNames = listOf("Alice", "Bob", "Carol"),
+    rows = listOf(
+        SplitwiseCsv.Row.Expense(
+            stableId = "p1",
+            dateEpochDay = 20_500,
+            description = "Dinner",
+            category = "Food",
+            currency = "USD",
+            totalMinor = 3000,
+            paidByMinor = mapOf("Alice" to 3000L),
+            owedByMinor = mapOf("Alice" to 1000L, "Bob" to 1000L, "Carol" to 1000L),
+        ),
+        SplitwiseCsv.Row.Settlement(
+            stableId = "p2",
+            dateEpochDay = 20_501,
+            fromName = "Bob",
+            toName = "Alice",
+            currency = "USD",
+            amountMinor = 1000,
+        ),
+    ),
+    skipped = listOf(SplitwiseCsv.SkippedRow(7, "…", "The amount in this row isn't a number")),
+    currencyTotalsMinor = mapOf("USD" to 3000L),
+    balanceChecksumMatches = true,
+)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Mapping light", showBackground = true)
+@Composable
+private fun MappingPreviewLight() {
+    app.dibs.core.ui.theme.DibsTheme {
+        androidx.compose.foundation.layout.Column {
+            MappingStep(
+                step = ImportStep.Mapping(previewParsed, previewParsed.memberNames.associateWith { it }, "Alice"),
+                onRename = { _, _ -> },
+                onChooseSelf = {},
+                onContinue = {},
+            )
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Preview dark", showBackground = true, uiMode = 0x21)
+@Composable
+private fun PreviewStepPreviewDark() {
+    app.dibs.core.ui.theme.DibsTheme {
+        androidx.compose.foundation.layout.Column {
+            PreviewStep(
+                step = ImportStep.Preview(previewParsed, emptyMap(), "Alice", "Lisbon crew", alreadyImported = false),
+                onBack = {},
+                onConfirm = {},
+            )
+        }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Preview large font", showBackground = true, fontScale = 2.0f)
+@Composable
+private fun PreviewStepPreviewLargeFont() {
+    app.dibs.core.ui.theme.DibsTheme {
+        androidx.compose.foundation.layout.Column {
+            PreviewStep(
+                step = ImportStep.Preview(previewParsed, emptyMap(), null, "Lisbon crew", alreadyImported = true),
+                onBack = {},
+                onConfirm = {},
+            )
         }
     }
 }
