@@ -228,7 +228,7 @@ object GroupProjector {
     private fun applyCreateGroup(state: GroupState, op: Op, payload: OpPayload.CreateGroup): GroupState {
         if (state.meta != null) return state.quarantine(op, QuarantineReason.DuplicateEntity)
         return state.copy(
-            meta = GroupMeta(payload.name, payload.emoji, payload.colorArgb, payload.defaultCurrency),
+            meta = GroupMeta(payload.name, payload.emoji, payload.colorArgb, payload.defaultCurrency, payload.adHoc),
         )
     }
 
@@ -283,7 +283,9 @@ object GroupProjector {
             id = payload.expenseId,
             fields = payload.expense,
             deleted = false,
-            history = listOf(ExpenseEvent(ExpenseEvent.Kind.CREATED, op.id, op.deviceId, op.lamport)),
+            history = listOf(
+                ExpenseEvent(ExpenseEvent.Kind.CREATED, op.id, op.deviceId, op.lamport, op.wallClockMillis),
+            ),
         )
         return state.copy(expenses = state.expenses.plusSorted(payload.expenseId, expense))
     }
@@ -311,7 +313,8 @@ object GroupProjector {
         )
         val edited = expense.copy(
             fields = fields,
-            history = expense.history + ExpenseEvent(ExpenseEvent.Kind.EDITED, op.id, op.deviceId, op.lamport),
+            history = expense.history +
+                ExpenseEvent(ExpenseEvent.Kind.EDITED, op.id, op.deviceId, op.lamport, op.wallClockMillis),
         )
         return state.copy(expenses = state.expenses.plusSorted(payload.expenseId, edited))
     }
@@ -327,7 +330,8 @@ object GroupProjector {
         val kind = if (deleted) ExpenseEvent.Kind.DELETED else ExpenseEvent.Kind.RESTORED
         val marked = expense.copy(
             deleted = deleted,
-            history = expense.history + ExpenseEvent(kind, op.id, op.deviceId, op.lamport),
+            history = expense.history +
+                ExpenseEvent(kind, op.id, op.deviceId, op.lamport, op.wallClockMillis),
         )
         return state.copy(expenses = state.expenses.plusSorted(expenseId, marked))
     }
@@ -347,6 +351,7 @@ object GroupProjector {
             payload.to,
             payload.amount,
             payload.currency,
+            payload.kind,
         )
         return state.copy(settlements = state.settlements.plusSorted(payload.settlementId, settlement))
     }

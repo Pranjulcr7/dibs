@@ -154,6 +154,7 @@ object OpFactory {
                 optStr(payload.emoji)
                 if (payload.colorArgb == null) append("n;") else num(payload.colorArgb)
                 str(payload.defaultCurrency.value)
+                str(if (payload.adHoc) "1" else "0")
             }
             is OpPayload.EditGroup -> {
                 str("edit_group")
@@ -282,6 +283,7 @@ object OpFactory {
                 str(payload.to.value)
                 num(payload.amount.minorUnits)
                 str(payload.currency.value)
+                optStr(payload.kind)
             }
         }
     }

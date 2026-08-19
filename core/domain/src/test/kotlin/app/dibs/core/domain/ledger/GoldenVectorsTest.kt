@@ -237,8 +237,8 @@ object GoldenFixtures {
 
     val EXPECTED_META_FOLD_CANONICAL_STATE: String = listOf(
         "state|11111111-1111-4111-8111-111111111111",
-        "g|11:Lisbon 2026|null|null|USD",
-        "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,38a1d8a8ec287fa909266c9d4130c4efa24109706c514776e572ba46d3b518e3,dddddddd-dddd-4ddd-8ddd-dddddddddddd,3",
+        "g|11:Lisbon 2026|null|null|USD|false",
+        "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,9bc4a93d6429947d598208ecc6eb6d990afe2bff3dd57fd3e51c8bc9c5d3354d,dddddddd-dddd-4ddd-8ddd-dddddddddddd,3",
     ).joinToString("\n", postfix = "\n")
 
     const val EXPECTED_CANONICAL_ENCODING =
@@ -248,8 +248,8 @@ object GoldenFixtures {
         "state|11111111-1111-4111-8111-111111111111",
         "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,abb55bb3eeeda42eb53e5a6ef11c9c621f8a62d0e6f8fa66b94b566100263ad3,dddddddd-dddd-4ddd-8ddd-dddddddddddd,1",
         "m|0b000000-0000-4000-8000-000000000002|5:Bobby|true|h:3:Bob,5abd42f02366780e6efc0e403cd365ef158ee823f0c4d1aad432e4a1849f37c8,dddddddd-dddd-4ddd-8ddd-dddddddddddd,2|h:5:Bobby,1a4494b66932cb1d262455e0ea54535bb37f1ac314971becf84ef676341f4f5b,dddddddd-dddd-4ddd-8ddd-dddddddddddd,3",
-        "e|e1e1e1e1-0000-4000-8000-000000000000|false|17:Dinner at Luigi's|USD|1000|20000|null|dining|null|null|p:0a000000-0000-4000-8000-000000000001,1000|o:0a000000-0000-4000-8000-000000000001,500|o:0b000000-0000-4000-8000-000000000002,500|h:CREATED,2037143d9b23ddd9bb974e67cd427644c5086e718654781ff1f70458a33eaeca,dddddddd-dddd-4ddd-8ddd-dddddddddddd,4|h:EDITED,2883506efb71c7569c8cf1b323b2562d881d93a13609651f86c5e36df3d3397b,dddddddd-dddd-4ddd-8ddd-dddddddddddd,5|h:EDITED,33c4de3f7e89caa4f2b84aa56d7978df30440cfc7a8056a342366ab8e9ff6d63,dddddddd-dddd-4ddd-8ddd-dddddddddddd,6|h:DELETED,3496d47cb71ed00c70d0ce0436fc989e95ca1acc3f498eed9f3634817d82e170,dddddddd-dddd-4ddd-8ddd-dddddddddddd,7|h:RESTORED,d86c360a3c813f0a2353f2ab9f388dff11971c62d1c64d3767d62edf6ef00a49,dddddddd-dddd-4ddd-8ddd-dddddddddddd,8",
-        "s|51515151-0000-4000-8000-000000000000|0b000000-0000-4000-8000-000000000002|0a000000-0000-4000-8000-000000000001|250|USD",
-        "q|d18206972ece530a74e2531d4c2c30194fa0f32703683b3ecd4328a117856835|UnknownMember(memberId=MemberId(value=0c000000-0000-4000-8000-000000000003))",
+        "e|e1e1e1e1-0000-4000-8000-000000000000|false|17:Dinner at Luigi's|USD|1000|20000|null|dining|null|null|p:0a000000-0000-4000-8000-000000000001,1000|o:0a000000-0000-4000-8000-000000000001,500|o:0b000000-0000-4000-8000-000000000002,500|h:CREATED,2037143d9b23ddd9bb974e67cd427644c5086e718654781ff1f70458a33eaeca,dddddddd-dddd-4ddd-8ddd-dddddddddddd,4,1003|h:EDITED,2883506efb71c7569c8cf1b323b2562d881d93a13609651f86c5e36df3d3397b,dddddddd-dddd-4ddd-8ddd-dddddddddddd,5,1004|h:EDITED,33c4de3f7e89caa4f2b84aa56d7978df30440cfc7a8056a342366ab8e9ff6d63,dddddddd-dddd-4ddd-8ddd-dddddddddddd,6,1005|h:DELETED,3496d47cb71ed00c70d0ce0436fc989e95ca1acc3f498eed9f3634817d82e170,dddddddd-dddd-4ddd-8ddd-dddddddddddd,7,1006|h:RESTORED,d86c360a3c813f0a2353f2ab9f388dff11971c62d1c64d3767d62edf6ef00a49,dddddddd-dddd-4ddd-8ddd-dddddddddddd,8,1007",
+        "s|51515151-0000-4000-8000-000000000000|0b000000-0000-4000-8000-000000000002|0a000000-0000-4000-8000-000000000001|250|USD|null",
+        "q|4f6882322916442ee779e14f13b980c54fd38f5c91adaddfefa4be51ae9f01d7|UnknownMember(memberId=MemberId(value=0c000000-0000-4000-8000-000000000003))",
     ).joinToString("\n", postfix = "\n")
 }

@@ -62,4 +62,27 @@
     <string name="expenses_deleted_rounding">%1$s absorbed %2$s rounding</string>
     <string name="activity_row_in">in %1$s</string>
     <string name="quick_add_pick_group">Add expense to…</string>
+    <string name="balances_members_header">Net balances</string>
+    <string name="balances_pairs_header">Who owes whom</string>
+    <string name="balances_simplify">Simplify debts</string>
+    <string name="balances_simplify_hint">Fewer payments that settle the same totals — you may pay someone you never split with.</string>
+    <string name="balances_pair_owes">%1$s owes %2$s</string>
+    <string name="balances_write_off">Write off</string>
+    <string name="balances_write_off_note">Writing off records an explicit adjustment; nothing is paid.</string>
+    <string name="settle_only_you_title">It\'s just you here</string>
+    <string name="settle_only_you_body">Add members to settle up with them.</string>
+    <string name="settle_all_settled_title">All settled up</string>
+    <string name="settle_all_settled_body">Nothing to pay — nice.</string>
+    <string name="settle_suggested_header">Suggested payments</string>
+    <string name="settle_record">Record</string>
+    <string name="settle_record_payment">Record a payment</string>
+    <string name="settle_payment_title">Record payment</string>
+    <string name="settle_from">From</string>
+    <string name="settle_to">To</string>
+    <string name="settle_amount">Amount</string>
+    <string name="settle_save">Record</string>
+    <string name="settle_cancel">Cancel</string>
+    <string name="settle_history_header">Payments</string>
+    <string name="settle_history_paid">%1$s paid %2$s</string>
+    <string name="settle_history_writeoff">%1$s\'s debt to %2$s written off</string>
 </resources>

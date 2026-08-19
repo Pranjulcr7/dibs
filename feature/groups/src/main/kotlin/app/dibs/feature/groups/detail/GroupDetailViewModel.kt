@@ -10,6 +10,7 @@ import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.ledger.OpPayload
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
+import app.dibs.core.domain.model.SettlementId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
 import app.dibs.core.domain.settings.SettingsStore
@@ -69,6 +70,24 @@ class GroupDetailViewModel @Inject constructor(
         )
         if (payload == OpPayload.EditGroup()) return
         viewModelScope.launch { ledger.append(groupId, payload) }
+    }
+
+    /** FR-S3/S4: settlements are their own transaction type; partial amounts welcome. */
+    fun recordSettlement(from: MemberId, to: MemberId, amount: Money, currency: CurrencyCode, kind: String? = null) {
+        if (!amount.isPositive || from == to) return
+        viewModelScope.launch {
+            ledger.append(
+                groupId,
+                OpPayload.RecordSettlement(
+                    settlementId = SettlementId(java.util.UUID.randomUUID().toString()),
+                    from = from,
+                    to = to,
+                    amount = amount,
+                    currency = currency,
+                    kind = kind,
+                ),
+            )
+        }
     }
 
     private companion object {

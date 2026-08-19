@@ -36,6 +36,8 @@ sealed interface OpPayload {
         val emoji: String? = null,
         val colorArgb: Long? = null,
         val defaultCurrency: CurrencyCode,
+        /** FR-G5: "just this once" groups are hidden from the group list. */
+        val adHoc: Boolean = false,
     ) : OpPayload
 
     /** Partial metadata edit; null = unchanged, wrappers distinguish "cleared" (see [NoteEdit]). */
@@ -163,6 +165,8 @@ sealed interface OpPayload {
         val to: MemberId,
         val amount: Money,
         val currency: CurrencyCode,
+        /** "payment" (default when null) or "writeoff" — edge 14's explicit adjustment. */
+        val kind: String? = null,
     ) : OpPayload
 }
 

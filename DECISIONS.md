@@ -256,9 +256,12 @@ The golden-vector rule ("never regenerate; bump the version and migrate")
 protects released users, of which there are none yet. Until the first tagged
 release, a canonical-format change may be made ONCE per need by bumping the
 format tag, regenerating all vectors in the same commit, and noting it here.
-First (and ideally last) use: `dibs-op-v2` adding `category` and `receiptRef`
-to `ExpenseFields` (AUDIT T2) so the field set is complete before real
-expenses exist. At first release this exception expires permanently.
+First use: `dibs-op-v2` adding `category`/`receiptRef`/`splitMode` to
+`ExpenseFields` (AUDIT T2). Second and final use, same day, still under v2:
+`RecordSettlement.kind` (write-offs, edge 14), `CreateGroup.adHoc` (FR-G5),
+and `ExpenseEvent.wallClockMillis` in the state rendering (trash age). The
+field set is now considered complete; at first release this exception expires
+permanently.
 
 ## M0 — Foundation
 

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -43,12 +42,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
-import app.dibs.core.domain.balance.MemberBalance
 import app.dibs.core.domain.ledger.GroupState
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.ui.components.EmptyState
-import app.dibs.core.ui.components.MemberAvatar
 import app.dibs.core.ui.money.MoneyFormatter
 import app.dibs.core.ui.theme.Dimens
 import app.dibs.core.ui.theme.LocalMoneyColors
@@ -72,6 +69,7 @@ fun GroupDetailRoute(
         onOpenExpense = onOpenExpense,
         onDuplicateExpense = onDuplicateExpense,
         onEditGroup = viewModel::editGroup,
+        onRecordSettlement = viewModel::recordSettlement,
     )
 }
 
@@ -86,6 +84,7 @@ fun GroupDetailScreen(
     onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onEditGroup: (name: String?, emoji: String?, currency: CurrencyCode?) -> Unit,
+    onRecordSettlement: (MemberId, MemberId, app.dibs.core.domain.money.Money, CurrencyCode, String?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state = uiState.state ?: return
@@ -142,11 +141,12 @@ fun GroupDetailScreen(
             }
             when (selectedTab) {
                 0 -> ExpensesTab(state, onOpenExpense, onDuplicateExpense)
-                1 -> BalancesTab(state, uiState.selfMember)
-                else -> EmptyState(
-                    title = stringResource(R.string.detail_settle_empty_title),
-                    body = stringResource(R.string.detail_settle_empty_body),
-                )
+                1 -> BalancesTabContent(state, uiState.selfMember) { from, to, amount, currency ->
+                    onRecordSettlement(from, to, amount, currency, "writeoff")
+                }
+                else -> SettleTabContent(state, uiState.selfMember) { from, to, amount, currency ->
+                    onRecordSettlement(from, to, amount, currency, null)
+                }
             }
         }
     }
@@ -275,65 +275,6 @@ private fun DetailHeader(uiState: GroupDetailUiState) {
         if (uiState.pendingCount > 0) {
             AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_syncing)) })
         }
-    }
-}
-
-@Composable
-private fun BalancesTab(state: GroupState, selfMember: MemberId?) {
-    val balances = state.balances()
-    if (balances.isEmpty() || balances.values.all { list -> list.all { it.net.isZero } }) {
-        EmptyState(
-            title = stringResource(R.string.detail_balances_empty_title),
-            body = stringResource(R.string.detail_balances_empty_body),
-        )
-        return
-    }
-    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd)) {
-        balances.forEach { (currency, memberBalances) ->
-            if (balances.size > 1) {
-                item(key = "header-${currency.value}") {
-                    Text(
-                        currency.value,
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(vertical = Dimens.spacingSm),
-                    )
-                }
-            }
-            // "You" pinned first (SPEC §4.1 screen 7), then by name via id order.
-            val sorted = memberBalances.sortedByDescending { it.memberId == selfMember }
-            items(sorted, key = { "${currency.value}-${it.memberId.value}" }) { balance ->
-                BalanceRow(state, balance, currency, isSelf = balance.memberId == selfMember)
-            }
-        }
-    }
-}
-
-@Composable
-private fun BalanceRow(state: GroupState, balance: MemberBalance, currency: CurrencyCode, isSelf: Boolean) {
-    val moneyColors = LocalMoneyColors.current
-    val name = state.members[balance.memberId]?.name.orEmpty()
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = Dimens.spacingSm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MemberAvatar(name = name, memberId = balance.memberId)
-        Spacer(Modifier.width(Dimens.spacingMd))
-        Text(
-            text = if (isSelf) stringResource(R.string.detail_you) else name,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = MoneyFormatter.format(balance.net, currency),
-            color = when {
-                balance.net.isPositive -> moneyColors.positive
-                balance.net.isNegative -> moneyColors.negative
-                else -> moneyColors.neutral
-            },
-            style = MaterialTheme.typography.titleSmall,
-        )
     }
 }
 

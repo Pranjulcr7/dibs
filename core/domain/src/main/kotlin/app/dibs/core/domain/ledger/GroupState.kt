@@ -4,6 +4,8 @@ package app.dibs.core.domain.ledger
 import app.dibs.core.domain.balance.Balances
 import app.dibs.core.domain.balance.Expense
 import app.dibs.core.domain.balance.MemberBalance
+import app.dibs.core.domain.balance.PairDebt
+import app.dibs.core.domain.balance.PairwiseBalances
 import app.dibs.core.domain.balance.SettlementPayment
 import app.dibs.core.domain.crypto.IdentityKey
 import app.dibs.core.domain.model.ExpenseId
@@ -13,6 +15,8 @@ import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.model.SettlementId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
+import app.dibs.core.domain.settle.Settlement
+import app.dibs.core.domain.settle.Transfer
 import java.util.SortedMap
 import java.util.TreeMap
 
@@ -45,6 +49,8 @@ data class ExpenseEvent(
     val opId: OpId,
     val deviceId: DeviceId,
     val lamport: Long,
+    /** Display-only, like every wall clock — trash age, "edited yesterday". */
+    val wallClockMillis: Long,
 ) {
     enum class Kind { CREATED, EDITED, DELETED, RESTORED }
 }
@@ -65,6 +71,8 @@ data class SettlementState(
     val to: MemberId,
     val amount: Money,
     val currency: CurrencyCode,
+    /** "payment" (null) or "writeoff" (edge 14). */
+    val kind: String? = null,
 )
 
 /** Why an op could not be applied. Typed so the UI can say something specific, never "something went wrong". */
@@ -109,6 +117,7 @@ data class GroupMeta(
     val emoji: String?,
     val colorArgb: Long?,
     val defaultCurrency: CurrencyCode,
+    val adHoc: Boolean = false,
 )
 
 /**
@@ -153,14 +162,22 @@ data class GroupState(
      * would be unverifiable, violating "never show a number the user can't
      * verify" (SPEC §1).
      */
-    fun balances(): Map<CurrencyCode, List<MemberBalance>> {
-        val expenseRecords = activeExpenses.map {
-            Expense(it.id, it.fields.currency, it.fields.paidBy, it.fields.owedBy)
-        }
-        val settlementRecords = settlements.values.map {
-            SettlementPayment(it.from, it.to, it.amount, it.currency)
-        }
-        return Balances.net(expenseRecords, settlementRecords)
+    fun balances(): Map<CurrencyCode, List<MemberBalance>> = Balances.net(expenseRecords(), settlementRecords())
+
+    /** Raw who-owes-whom, the default balances view (FR-S1). */
+    fun pairwiseDebts(): Map<CurrencyCode, List<PairDebt>> =
+        PairwiseBalances.compute(expenseRecords(), settlementRecords())
+
+    /** Greedy minimal-ish transfers behind the opt-in simplify toggle (FR-S2). */
+    fun suggestedTransfers(): Map<CurrencyCode, List<Transfer>> =
+        balances().mapValues { (_, memberBalances) -> Settlement.simplify(memberBalances) }
+
+    private fun expenseRecords() = activeExpenses.map {
+        Expense(it.id, it.fields.currency, it.fields.paidBy, it.fields.owedBy)
+    }
+
+    private fun settlementRecords() = settlements.values.map {
+        SettlementPayment(it.from, it.to, it.amount, it.currency)
     }
 
     /**
@@ -179,7 +196,8 @@ data class GroupState(
             append("g|").append(m.name.length).append(':').append(m.name)
                 .append('|').append(m.emoji?.let { "${it.length}:$it" } ?: "null")
                 .append('|').append(m.colorArgb?.toString() ?: "null")
-                .append('|').append(m.defaultCurrency.value).append('\n')
+                .append('|').append(m.defaultCurrency.value)
+                .append('|').append(m.adHoc).append('\n')
         }
         joinApprovalRequired?.let { append("jp|").append(it).append('\n') }
         members.values.forEach { member ->
@@ -204,13 +222,15 @@ data class GroupState(
             expense.history.forEach { event ->
                 append("|h:").append(event.kind).append(',').append(event.opId.value)
                     .append(',').append(event.deviceId.value).append(',').append(event.lamport)
+                    .append(',').append(event.wallClockMillis)
             }
             append('\n')
         }
         settlements.values.forEach { settlement ->
             append("s|").append(settlement.id.value).append('|').append(settlement.from.value)
                 .append('|').append(settlement.to.value).append('|').append(settlement.amount.minorUnits)
-                .append('|').append(settlement.currency.value).append('\n')
+                .append('|').append(settlement.currency.value)
+                .append('|').append(settlement.kind ?: "null").append('\n')
         }
         invites.values.forEach { invite ->
             append("iv|").append(invite.id.value).append('|').append(invite.inviterKey.hex)
