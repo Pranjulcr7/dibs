@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="scan_title">Scan receipt</string>
+    <string name="scan_hint">Fill the frame with the receipt. Flatten it and avoid glare and shadows.</string>
+    <string name="scan_capture">Capture</string>
+    <string name="scan_frames">%1$d frames captured — add another for a long receipt</string>
+    <string name="scan_remove_frame">Remove last frame</string>
+    <string name="scan_parse">Read receipt</string>
+    <string name="scan_gallery">Pick from gallery</string>
+    <string name="scan_manual">Type it in instead</string>
+    <string name="scan_permission_denied">Camera is off — no problem. Pick a photo from the gallery, or type the items in.</string>
+    <string name="scan_failed_nothing">Couldn\'t read anything useful. Try more light, hold steadier, and get closer — or type the items in.</string>
+    <string name="scan_failed_timeout">Reading took too long and was stopped. Try again, or type the items in.</string>
+    <string name="scan_nonlatin_note">Only Latin-script receipts are supported for now.</string>
+    <string name="scan_back">Back</string>
+
+    <string name="review_title">Check what was read</string>
+    <string name="review_subtitle">Nothing is added until you confirm it. Fix anything that\'s wrong.</string>
+    <string name="review_gate_ok">Adds up: items%1$s match the printed total</string>
+    <string name="review_gate_mismatch">Doesn\'t add up — items%1$s differ from the printed total. Fix an amount or the total.</string>
+    <string name="review_gate_taxes"> + tax/tip</string>
+    <string name="review_flag_total_only">Only the total was readable. You can add the items by hand, or keep it as one amount.</string>
+    <string name="review_flag_unparsed">Some lines couldn\'t be read and were left out — check the paper.</string>
+    <string name="review_items">Items</string>
+    <string name="review_item_label">Item</string>
+    <string name="review_item_amount">Amount</string>
+    <string name="review_item_delete">Remove item</string>
+    <string name="review_add_item">Add item</string>
+    <string name="review_tax">Tax</string>
+    <string name="review_tip">Tip</string>
+    <string name="review_total">Printed total</string>
+    <string name="review_duplicate">This looks identical to a receipt already in the group. Add it again?</string>
+    <string name="review_use">Use these items</string>
+    <string name="review_rescan">Scan again</string>
+</resources>

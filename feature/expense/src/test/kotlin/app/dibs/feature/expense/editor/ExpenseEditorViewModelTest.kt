@@ -14,6 +14,7 @@ import app.dibs.core.domain.split.SplitResult
 import app.dibs.core.domain.split.SplitSpec
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -334,5 +335,61 @@ class ExpenseEditorViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(0, ledger.state(groupId).expenses.size)
         assertNull(ledger.state(groupId).expenses.values.firstOrNull())
+    }
+
+    // -- receipt hand-off (M5, FR-R3/R5) --------------------------------------
+
+    @Test
+    fun `given a reviewed receipt handoff then the editor opens itemized with items, tax, tip, and the photo ref`() = runTest(dispatcher) {
+        seedGroup()
+        val handoff = app.dibs.core.domain.receipt.ReceiptHandoff(
+            items = listOf(
+                app.dibs.core.domain.receipt.ReceiptHandoff.Item("Latte", 2, 900),
+                app.dibs.core.domain.receipt.ReceiptHandoff.Item("Bagel", 1, 325),
+            ),
+            taxMinor = 98,
+            tipMinor = 200,
+            receiptRef = "abc123.jpg",
+        )
+        val vm = viewModel(
+            SavedStateHandle(mapOf("groupId" to groupId.value, "receiptDraft" to handoff.encode())),
+        )
+        val collector = launch { vm.uiState.collect {} }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val draft = vm.uiState.value.draft
+        collector.cancel()
+        assertEquals("itemized", draft.mode)
+        assertEquals(listOf("2 x Latte", "Bagel"), draft.items.map { it.name })
+        assertEquals(listOf("9.00", "3.25"), draft.items.map { it.priceText })
+        assertEquals("0.98", draft.taxText)
+        assertEquals("2.00", draft.tipText)
+        assertEquals("abc123.jpg", draft.receiptRef)
+        assertEquals(alice.value, draft.payer)
+    }
+
+    @Test
+    fun `given a receipt handoff saved after assignment then the expense carries the receipt reference`() = runTest(dispatcher) {
+        seedGroup()
+        val handoff = app.dibs.core.domain.receipt.ReceiptHandoff(
+            items = listOf(app.dibs.core.domain.receipt.ReceiptHandoff.Item("Latte", 1, 450)),
+            receiptRef = "abc123.jpg",
+        )
+        val vm = viewModel(
+            SavedStateHandle(mapOf("groupId" to groupId.value, "receiptDraft" to handoff.encode())),
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.updateDraft { draft ->
+            draft.copy(
+                description = "Coffee run",
+                items = draft.items.map { it.copy(consumers = mapOf(alice.value to 1L)) },
+            )
+        }
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val expense = ledger.state(groupId).activeExpenses.single()
+        assertEquals("abc123.jpg", expense.fields.receiptRef)
+        assertEquals(Money(450), expense.fields.total)
     }
 }

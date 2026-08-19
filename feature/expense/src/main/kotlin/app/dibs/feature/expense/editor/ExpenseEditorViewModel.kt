@@ -18,6 +18,7 @@ import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
 import app.dibs.core.domain.money.MoneyInput
+import app.dibs.core.domain.receipt.ReceiptHandoff
 import app.dibs.core.domain.settings.SettingsStore
 import app.dibs.core.domain.split.Allocation
 import app.dibs.core.domain.split.LineItem
@@ -81,6 +82,8 @@ data class EditorDraft(
     val tipText: String = "",
     /** FR-E7: reminder period in days (7, 30) — device-local rule, not part of the op. */
     val repeatDays: Int? = null,
+    /** Set when this draft came from a scanned receipt (FR-E8); stored on save. */
+    val receiptRef: String? = null,
 )
 
 @Serializable
@@ -158,6 +161,8 @@ class ExpenseEditorViewModel @Inject constructor(
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]) { "groupId nav argument missing" })
     private val expenseId: ExpenseId? = savedStateHandle.get<String>("expenseId")?.let(::ExpenseId)
     private val duplicateOf: ExpenseId? = savedStateHandle.get<String>("duplicateOf")?.let(::ExpenseId)
+    private val receiptHandoff: ReceiptHandoff? =
+        savedStateHandle.get<String>("receiptDraft")?.let(ReceiptHandoff::decode)
 
     private val json = Json
     private val draftFlow = MutableStateFlow(EditorDraft())
@@ -205,6 +210,7 @@ class ExpenseEditorViewModel @Inject constructor(
             original != null -> draftFrom(checkNotNull(original).fields)
             duplicateOf != null && state.expenses[duplicateOf] != null ->
                 draftFrom(checkNotNull(state.expenses[duplicateOf]).fields)
+            receiptHandoff != null -> draftFromReceipt(receiptHandoff, state, settingsStore)
             else -> {
                 val settings = settingsStore.settings.first()
                 val self = settings.selfMembers[groupId]
@@ -220,6 +226,38 @@ class ExpenseEditorViewModel @Inject constructor(
         }
         updateDraft { draft }
         loadedFlow.value = true
+    }
+
+    /**
+     * The reviewed scan lands as an itemized draft; assignment happens with
+     * the same UI as manual entry (FR-R5/R8).
+     */
+    private suspend fun draftFromReceipt(
+        handoff: ReceiptHandoff,
+        state: app.dibs.core.domain.ledger.GroupState,
+        settingsStore: SettingsStore,
+    ): EditorDraft {
+        val settings = settingsStore.settings.first()
+        val currency = state.meta?.defaultCurrency ?: CurrencyCode("USD")
+        return EditorDraft(
+            dateEpochDay = LocalDate.now().toEpochDay(),
+            payer = settings.selfMembers[groupId]?.value,
+            participants = state.members.values
+                .filter { it.active && !it.removed }
+                .map { it.id.value }
+                .toSet(),
+            mode = SplitModeUi.ITEMIZED.tag,
+            items = handoff.items.map { item ->
+                ItemDraft(
+                    id = UUID.randomUUID().toString(),
+                    name = if (item.quantity > 1) "${item.quantity} x ${item.label}" else item.label,
+                    priceText = MoneyInput.toPlainString(Money(item.amountMinor), currency),
+                )
+            },
+            taxText = handoff.taxMinor?.let { MoneyInput.toPlainString(Money(it), currency) }.orEmpty(),
+            tipText = handoff.tipMinor?.let { MoneyInput.toPlainString(Money(it), currency) }.orEmpty(),
+            receiptRef = handoff.receiptRef,
+        )
     }
 
     fun updateDraft(transform: (EditorDraft) -> EditorDraft) {
@@ -253,7 +291,7 @@ class ExpenseEditorViewModel @Inject constructor(
                 dateEpochDay = draft.dateEpochDay,
                 note = draft.note.trim().ifEmpty { null },
                 category = draft.category,
-                receiptRef = original?.fields?.receiptRef,
+                receiptRef = draft.receiptRef ?: original?.fields?.receiptRef,
                 splitMode = SplitModeUi.fromTag(draft.mode).tag,
             )
             val existing = original

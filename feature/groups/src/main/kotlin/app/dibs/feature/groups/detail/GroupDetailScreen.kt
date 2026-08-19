@@ -69,6 +69,7 @@ fun GroupDetailRoute(
     onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onOpenTrash: () -> Unit,
+    onScanReceipt: () -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -99,6 +100,7 @@ fun GroupDetailRoute(
         onRecordSettlement = viewModel::recordSettlement,
         onOpenTrash = onOpenTrash,
         onSetArchived = viewModel::setArchived,
+        onScanReceipt = onScanReceipt,
         onExportCsv = {
             val name = uiState.state?.meta?.name?.ifBlank { null } ?: "dibs-group"
             exportLauncher.launch("$name.csv")
@@ -122,6 +124,7 @@ fun GroupDetailScreen(
     onSetArchived: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     onExportCsv: () -> Unit = {},
+    onScanReceipt: () -> Unit = {},
 ) {
     val state = uiState.state ?: return
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -163,6 +166,13 @@ fun GroupDetailScreen(
                             onClick = {
                                 menuOpen = false
                                 onOpenTrash()
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.scan_receipt_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onScanReceipt()
                             },
                         )
                         androidx.compose.material3.DropdownMenuItem(

@@ -37,6 +37,7 @@ dependencies {
     // in :core:data so Hilt can bind the implementations (CLAUDE.md: ":app —
     // navigation host, DI wiring, nothing else").
     implementation(project(":core:data"))
+    implementation(project(":core:ocr"))
     implementation(project(":core:ui"))
     implementation(project(":feature:groups"))
     implementation(project(":feature:expense"))

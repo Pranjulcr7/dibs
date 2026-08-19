@@ -119,6 +119,7 @@ private fun DibsNavHost(initialRoute: String? = null) {
                 onOpenExpense = { navController.navigate("group/$groupId/expense/${it.value}") },
                 onDuplicateExpense = { navController.navigate("group/$groupId/expense/new?duplicateOf=${it.value}") },
                 onOpenTrash = { navController.navigate("group/$groupId/trash") },
+                onScanReceipt = { navController.navigate("group/$groupId/scan") },
             )
         }
         composable(
@@ -128,7 +129,7 @@ private fun DibsNavHost(initialRoute: String? = null) {
             app.dibs.feature.groups.trash.TrashRoute(onBack = { navController.popBackStack() })
         }
         composable(
-            "group/{groupId}/expense/new?duplicateOf={duplicateOf}",
+            "group/{groupId}/expense/new?duplicateOf={duplicateOf}&receiptDraft={receiptDraft}",
             arguments = listOf(
                 navArgument("groupId") { type = NavType.StringType },
                 navArgument("duplicateOf") {
@@ -136,9 +137,34 @@ private fun DibsNavHost(initialRoute: String? = null) {
                     nullable = true
                     defaultValue = null
                 },
+                navArgument("receiptDraft") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
             ),
         ) {
             ExpenseEditorRoute(onDone = { navController.popBackStack() })
+        }
+        composable(
+            "group/{groupId}/scan",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+        ) { entry ->
+            val groupId = entry.arguments?.getString("groupId").orEmpty()
+            app.dibs.feature.scan.ScanRoute(
+                onUseHandoff = { handoff ->
+                    val encoded = android.net.Uri.encode(handoff.encode())
+                    navController.navigate("group/$groupId/expense/new?receiptDraft=$encoded") {
+                        popUpTo("group/$groupId")
+                    }
+                },
+                onManualEntry = {
+                    navController.navigate("group/$groupId/expense/new") {
+                        popUpTo("group/$groupId")
+                    }
+                },
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(
             "group/{groupId}/expense/{expenseId}",
