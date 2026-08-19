@@ -1,5 +1,74 @@
 # PROGRESS
 
+## 2026-08-18 — M4 complete: import, export, backup
+
+`./gradlew check` green. **Install to the phone pending — device disconnected;
+3c/3d/M4 installs will all run when it reappears** (one `pm clear app.dibs` is
+needed once: the dibs-op-v2 format change predates any on-device data worth
+keeping).
+
+- **Splitwise CSV import (FR-I1).** Domain parser for the English export:
+  member names from the header, signed net columns reconstructed into exact
+  paid/owed maps (debtors verbatim; payers split the residual by largest
+  remainder over credit weights — sums exact to the cent), Payment rows →
+  settlements, `Total balance` trailer used as a checksum, malformed rows
+  skipped with line numbers. Every row's id is `BLAKE3(fileHash|row)`, so the
+  same file can never import twice (edge 55). UI wizard: pick file (SAF) →
+  rename members and mark "this is me" → preview (counts, per-currency totals,
+  skipped rows, checksum warning, duplicate-file block) → confirm into a new
+  group, self member claimed.
+- **CSV export (FR-I2).** Splitwise-shaped export from the group overflow menu
+  via SAF; proven re-importable by a round-trip test through the parser.
+- **Encrypted backup (FR-I3/I4).** One `.dibs` file: whole op-log + identity
+  master key + settings. Argon2id (t=3, m=32 MiB) → XChaCha20-Poly1305 with
+  the header (magic, version, salt, KDF params) as AEAD associated data —
+  tampering with any byte, parameters included, fails wholesale (edge 59).
+  Wrong passphrase and corruption are indistinguishable and write nothing
+  (edge 58). Restore is a set-union merge: idempotent, additive, never
+  destructive (edge 57); the master key is adopted only on a device that has
+  none (a live identity is never overwritten). Settings merge local-wins.
+  Passphrase strength meter enforced at creation — WEAK refused in both the
+  dialog and the ViewModel (edge 77).
+- **Backup reminder (FR-I5).** Groups list banner when the ledger changed and
+  the last backup is missing or 30+ days old. "Changed" is exact, not
+  heuristic: `Ledger.totalOpCount` vs the count captured at backup — the log
+  is append-only, so the count moving *is* the change.
+- **Tests:** parser (12), export round-trip, backup codec (5: roundtrip,
+  wrong passphrase, byte-flip AEAD rejection, salt uniqueness, garbage),
+  backup service (4 Robolectric: fresh-device byte-identical restore with
+  identity adoption, idempotent re-restore, merge-not-replace, wrong
+  passphrase writes nothing), passphrase strength (6), import ViewModel (4),
+  settings ViewModel backup events (3).
+
+### Deferred / notes
+
+- NFR-3 fold-time measurement with a 5k-expense import runs on the physical
+  device in the quality pass (numbers, not estimates).
+- Import binds all rows to one new group; importing into an existing group is
+  intentionally not offered (see D34).
+
+## 2026-08-18 — M3 stages 3c and 3d complete
+
+`./gradlew check` green. (Install pending device reconnect, as above.)
+
+- **3c — expense editor:** all six split modes (equal with per-member toggle,
+  exact, percent (basis points), shares, adjustment, itemized with per-item
+  consumers and proportional tax/tip), live remaining-bar with exact-sum
+  guarantee and one-cent absorber note, category chips, date picker, multi-
+  payer entry, draft survival across process death (SavedStateHandle, edge
+  61), field-level edit diffing with atomic amounts edit, duplicate-expense
+  prefill, repeat-rules (device-local, D33) with notification prefill —
+  reminders never auto-create expenses.
+- **3d — settle & manage:** balances tab (pairwise who-owes-whom by exact
+  per-expense decomposition — property-tested equal to member nets — with
+  opt-in simplify toggle and explanation), settle tab (suggested transfers,
+  record-payment dialog with editable amount, manual payment, write-off with
+  history label, edge 14), settlement history, search/filter, 30-day trash
+  with restore (edge 21), archive/unarchive, ad-hoc "just this once" groups
+  (FR-G5), app lock via BiometricPrompt (fail-open without credentials),
+  FLAG_SECURE toggle, theme/dynamic-color/display-name/currency settings.
+
+
 ## 2026-08-18 — Identity model (SPEC §5.9) landed ahead of M6
 
 Model + ops + hooks now; join/invite UI ships with M6. `./gradlew check` green.

@@ -263,6 +263,48 @@ and `ExpenseEvent.wallClockMillis` in the state rendering (trash age). The
 field set is now considered complete; at first release this exception expires
 permanently.
 
+## M3 — Screens
+
+### D32. Editing an equal split reopens as equal; every other mode reopens as exact
+
+An equal split is a *policy* ("split it evenly among these people"), so edits
+re-run the policy over the new amount. Exact, percent, shares, adjustment and
+itemized results are *outcomes* the user already reviewed; reopening them as
+their original mode would silently recompute money on an amount change. They
+reopen as exact allocations, and the user re-picks a mode deliberately.
+
+### D33. Recurring rules are device-local settings, not ledger ops
+
+A repeat rule creates nothing by itself — the notification opens a prefilled
+editor and a human confirms. Since the rule never changes shared state, it
+does not belong in the op-log (which would force every device to agree on
+scheduling), and it lives in DataStore beside the theme.
+
+## M4 — Import, export, backup
+
+### D34. Splitwise import always creates a new group
+
+Mapping imported members onto an existing group's members is a merge problem
+with silent-money-corruption failure modes (wrong person matched → wrong
+debts). SPEC doesn't require it, and the workaround is trivial (import, then
+keep using the new group). The file+row stableIds make the import idempotent
+globally: the same file is refused anywhere, not just in its own group.
+
+### D35. Restore merges with local-wins settings; identity adopted only if absent
+
+Op sets union by content address, so ledger restore is naturally additive.
+For settings there is no CRDT, so the local value wins and the backup only
+fills gaps (blank display name, unknown self-members). The identity master
+key is adopted only when the device has none — overwriting a live identity
+would orphan every claim it has signed. Restoring someone else's backup onto
+an established device therefore adds their groups but cannot impersonate them.
+
+### D36. "Ledger has changed" for the backup reminder is an op-count comparison
+
+FR-I5 needs "changed since last backup". The log is append-only, so the total
+op count moving is exactly equivalent to a change — no dirty flags to keep in
+sync, no content hashing, no clock beyond the 30-day staleness check.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36
