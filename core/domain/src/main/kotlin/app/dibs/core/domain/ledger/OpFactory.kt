@@ -26,7 +26,9 @@ import org.apache.commons.codec.digest.Blake3
 @Suppress("TooManyFunctions") // one small encoder per canonical-format element
 object OpFactory {
 
-    private const val FORMAT_VERSION = "dibs-op-v1"
+    // v2 (pre-release exception D31): ExpenseFields gained category/receiptRef/
+    // splitMode; ExpenseEdit gained category; AmountsEdit gained splitMode.
+    private const val FORMAT_VERSION = "dibs-op-v2"
 
     @Suppress("LongParameterList") // the six fields of an Op are one cohesive record
     fun create(
@@ -137,6 +139,9 @@ object OpFactory {
         moneyMap(fields.owedBy)
         num(fields.dateEpochDay)
         optStr(fields.note)
+        optStr(fields.category)
+        optStr(fields.receiptRef)
+        optStr(fields.splitMode)
     }
 
     // One exhaustive when per payload type; splitting would hide the format.
@@ -213,6 +218,13 @@ object OpFactory {
                     num(amounts.total.minorUnits)
                     moneyMap(amounts.paidBy)
                     moneyMap(amounts.owedBy)
+                    optStr(amounts.splitMode)
+                }
+                if (payload.edit.category == null) {
+                    append("n;")
+                } else {
+                    append("p;")
+                    optStr(payload.edit.category.value)
                 }
             }
             is OpPayload.DeleteExpense -> {

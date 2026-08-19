@@ -301,11 +301,13 @@ object GroupProjector {
         val fields = expense.fields.copy(
             description = edit.description ?: expense.fields.description,
             note = if (edit.note != null) edit.note.value else expense.fields.note,
+            category = if (edit.category != null) edit.category.value else expense.fields.category,
             dateEpochDay = edit.dateEpochDay ?: expense.fields.dateEpochDay,
             currency = edit.amounts?.currency ?: expense.fields.currency,
             total = edit.amounts?.total ?: expense.fields.total,
             paidBy = edit.amounts?.paidBy ?: expense.fields.paidBy,
             owedBy = edit.amounts?.owedBy ?: expense.fields.owedBy,
+            splitMode = edit.amounts?.splitMode ?: expense.fields.splitMode,
         )
         val edited = expense.copy(
             fields = fields,

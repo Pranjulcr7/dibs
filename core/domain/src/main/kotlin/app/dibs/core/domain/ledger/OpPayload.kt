@@ -174,8 +174,18 @@ data class ExpenseFields(
     val total: Money,
     val paidBy: Map<MemberId, Money>,
     val owedBy: Map<MemberId, Money>,
+    /** Civil date of the expense (epoch day) — never an instant (D30). */
     val dateEpochDay: Long,
     val note: String? = null,
+    /** Machine tag ("food", "travel", …); localized at display time. */
+    val category: String? = null,
+    /** App-private receipt image reference (M5); never a path outside app storage. */
+    val receiptRef: String? = null,
+    /**
+     * The split mode used at entry ("equal", "exact", …) — an editor hint and
+     * display detail only; [owedBy] is always the financial truth (D32).
+     */
+    val splitMode: String? = null,
 )
 
 /**
@@ -192,7 +202,12 @@ data class ExpenseEdit(
     val note: NoteEdit? = null,
     val dateEpochDay: Long? = null,
     val amounts: AmountsEdit? = null,
+    val category: CategoryEdit? = null,
 )
+
+/** Wrapper whose presence means "the category was changed", possibly cleared; see [NoteEdit]. */
+@Serializable
+data class CategoryEdit(val value: String?)
 
 /** Wrapper whose presence means "the note was changed", possibly to null. */
 @Serializable
@@ -213,4 +228,5 @@ data class AmountsEdit(
     val total: Money,
     val paidBy: Map<MemberId, Money>,
     val owedBy: Map<MemberId, Money>,
+    val splitMode: String? = null,
 )

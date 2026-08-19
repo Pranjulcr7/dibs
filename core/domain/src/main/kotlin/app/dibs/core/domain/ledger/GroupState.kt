@@ -229,6 +229,9 @@ data class GroupState(
             .append('|').append(fields.total.minorUnits)
             .append('|').append(fields.dateEpochDay)
             .append('|').append(fields.note?.let { "${it.length}:$it" } ?: "null")
+            .append('|').append(fields.category ?: "null")
+            .append('|').append(fields.receiptRef ?: "null")
+            .append('|').append(fields.splitMode ?: "null")
         fields.paidBy.entries.sortedBy { it.key }.forEach { (member, amount) ->
             append("|p:").append(member.value).append(',').append(amount.minorUnits)
         }
