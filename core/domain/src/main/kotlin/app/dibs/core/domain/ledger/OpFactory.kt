@@ -270,6 +270,10 @@ object OpFactory {
                 str(payload.removerKey.hex)
                 str(payload.signature)
             }
+            is OpPayload.SetArchived -> {
+                str("set_archived")
+                str(if (payload.archived) "1" else "0")
+            }
             is OpPayload.SetJoinPolicy -> {
                 str("set_join_policy")
                 str(if (payload.requiresApproval) "1" else "0")

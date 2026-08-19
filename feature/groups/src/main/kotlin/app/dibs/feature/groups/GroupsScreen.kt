@@ -88,8 +88,21 @@ fun GroupsScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd),
                     verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
                 ) {
-                    items(uiState.groups, key = { it.id.value }) { card ->
+                    val (archived, active) = uiState.groups.partition { it.archived }
+                    items(active, key = { it.id.value }) { card ->
                         GroupCard(card, onClick = { onOpenGroup(card.id) })
+                    }
+                    if (archived.isNotEmpty()) {
+                        item(key = "archived-header") {
+                            Text(
+                                stringResource(R.string.groups_archived_header),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        items(archived, key = { it.id.value }) { card ->
+                            GroupCard(card, onClick = { onOpenGroup(card.id) })
+                        }
                     }
                 }
             }

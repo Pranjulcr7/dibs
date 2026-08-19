@@ -85,4 +85,21 @@
     <string name="settle_history_header">Payments</string>
     <string name="settle_history_paid">%1$s paid %2$s</string>
     <string name="settle_history_writeoff">%1$s\'s debt to %2$s written off</string>
+    <string name="search_hint">Search expenses</string>
+    <string name="filter_all_members">Everyone</string>
+    <string name="filter_all_categories">Any category</string>
+    <string name="search_no_results_title">No matches</string>
+    <string name="search_no_results_body">Try a different search or clear the filters.</string>
+    <string name="trash_title">Trash</string>
+    <string name="trash_action">Trash</string>
+    <string name="trash_empty_title">Trash is empty</string>
+    <string name="trash_empty_body">Deleted expenses stay here for 30 days.</string>
+    <string name="trash_restore">Restore</string>
+    <string name="trash_days_left">%1$d days left</string>
+    <string name="archive_action">Archive group</string>
+    <string name="unarchive_action">Unarchive group</string>
+    <string name="groups_archived_header">Archived</string>
+    <string name="quick_add_just_once">Just this once</string>
+    <string name="quick_add_one_off_name">One-off</string>
+    <string name="detail_more_actions">More actions</string>
 </resources>

@@ -103,7 +103,14 @@ private fun DibsNavHost() {
                 onAddExpense = { navController.navigate("group/$groupId/expense/new") },
                 onOpenExpense = { navController.navigate("group/$groupId/expense/${it.value}") },
                 onDuplicateExpense = { navController.navigate("group/$groupId/expense/new?duplicateOf=${it.value}") },
+                onOpenTrash = { navController.navigate("group/$groupId/trash") },
             )
+        }
+        composable(
+            "group/{groupId}/trash",
+            arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
+        ) {
+            app.dibs.feature.groups.trash.TrashRoute(onBack = { navController.popBackStack() })
         }
         composable(
             "group/{groupId}/expense/new?duplicateOf={duplicateOf}",
@@ -201,6 +208,8 @@ private fun HomeScaffold(
     }
 
     if (showGroupPicker) {
+        val oneOffName = stringResource(R.string.quick_add_one_off_name)
+        val selfFallback = stringResource(R.string.quick_add_self_fallback)
         androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showGroupPicker = false }) {
             androidx.compose.foundation.layout.Column(Modifier.padding(app.dibs.core.ui.theme.Dimens.spacingMd)) {
                 Text(
@@ -214,6 +223,15 @@ private fun HomeScaffold(
                     }) {
                         Text(target.label)
                     }
+                }
+                // FR-G5: a hidden ad-hoc group, same code path as everything else.
+                androidx.compose.material3.TextButton(onClick = {
+                    showGroupPicker = false
+                    scope.launch {
+                        onAddExpense(quickAdd.createAdHocGroup(oneOffName, selfFallback))
+                    }
+                }) {
+                    Text(stringResource(R.string.quick_add_just_once))
                 }
                 androidx.compose.foundation.layout.Spacer(
                     Modifier.padding(app.dibs.core.ui.theme.Dimens.spacingLg),

@@ -8,4 +8,7 @@
     <string name="fab_add_expense">Add expense</string>
     <string name="coming_soon">Not built yet — this arrives in an upcoming stage.</string>
     <string name="quick_add_pick_group">Add expense to…</string>
+    <string name="quick_add_one_off_name">One-off</string>
+    <string name="quick_add_just_once">Just this once</string>
+    <string name="quick_add_self_fallback">You</string>
 </resources>

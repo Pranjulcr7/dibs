@@ -148,6 +148,11 @@ sealed interface OpPayload {
         val signature: String,
     ) : OpPayload
 
+    /** FR-G4: archive hides a group from the main list; readable, reversible, LWW. */
+    @Serializable
+    @SerialName("set_archived")
+    data class SetArchived(val archived: Boolean) : OpPayload
+
     /** Per-group approval mode toggle (SPEC §5.9); LWW like other group settings. */
     @Serializable
     @SerialName("set_join_policy")

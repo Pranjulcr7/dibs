@@ -2,6 +2,7 @@
 package app.dibs.feature.groups.detail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -40,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.dibs.core.domain.ledger.GroupState
@@ -58,6 +61,7 @@ fun GroupDetailRoute(
     onAddExpense: () -> Unit,
     onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onOpenTrash: () -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -70,6 +74,8 @@ fun GroupDetailRoute(
         onDuplicateExpense = onDuplicateExpense,
         onEditGroup = viewModel::editGroup,
         onRecordSettlement = viewModel::recordSettlement,
+        onOpenTrash = onOpenTrash,
+        onSetArchived = viewModel::setArchived,
     )
 }
 
@@ -85,6 +91,8 @@ fun GroupDetailScreen(
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onEditGroup: (name: String?, emoji: String?, currency: CurrencyCode?) -> Unit,
     onRecordSettlement: (MemberId, MemberId, app.dibs.core.domain.money.Money, CurrencyCode, String?) -> Unit,
+    onOpenTrash: () -> Unit,
+    onSetArchived: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state = uiState.state ?: return
@@ -110,6 +118,39 @@ fun GroupDetailScreen(
                     }
                     IconButton(onClick = onOpenMembers) {
                         Icon(Icons.Filled.Person, contentDescription = stringResource(R.string.detail_members_action))
+                    }
+                    var menuOpen by androidx.compose.runtime.remember { mutableStateOf(false) }
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(
+                            Icons.Filled.MoreVert,
+                            contentDescription = stringResource(R.string.detail_more_actions),
+                        )
+                    }
+                    androidx.compose.material3.DropdownMenu(
+                        expanded = menuOpen,
+                        onDismissRequest = { menuOpen = false },
+                    ) {
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.trash_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onOpenTrash()
+                            },
+                        )
+                        val archived = state.archived == true
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = {
+                                Text(
+                                    stringResource(
+                                        if (archived) R.string.unarchive_action else R.string.archive_action,
+                                    ),
+                                )
+                            },
+                            onClick = {
+                                menuOpen = false
+                                onSetArchived(!archived)
+                            },
+                        )
                     }
                 },
             )
@@ -181,9 +222,63 @@ private fun ExpensesTab(
         )
         return
     }
-    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd)) {
-        items(active, key = { it.id.value }) { expense ->
-            ExpenseRow(state, expense, onOpenExpense, onDuplicateExpense)
+    var query by rememberSaveable { mutableStateOf("") }
+    var memberFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    var categoryFilter by rememberSaveable { mutableStateOf<String?>(null) }
+    val filtered = ExpenseFilter.apply(active, query, memberFilter?.let(::MemberId), categoryFilter)
+    val categories = active.mapNotNull { it.fields.category }.distinct().sorted()
+
+    Column {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text(stringResource(R.string.search_hint)) },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = Dimens.spacingMd)
+                .testTag("expense-search"),
+        )
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = Dimens.spacingMd, vertical = Dimens.spacingXs),
+            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(Dimens.spacingXs),
+        ) {
+            androidx.compose.material3.FilterChip(
+                selected = memberFilter == null,
+                onClick = { memberFilter = null },
+                label = { Text(stringResource(R.string.filter_all_members)) },
+            )
+            state.members.values.filter { it.active && !it.removed }.forEach { member ->
+                androidx.compose.material3.FilterChip(
+                    selected = memberFilter == member.id.value,
+                    onClick = {
+                        memberFilter = if (memberFilter == member.id.value) null else member.id.value
+                    },
+                    label = { Text(member.name) },
+                )
+            }
+            categories.forEach { category ->
+                androidx.compose.material3.FilterChip(
+                    selected = categoryFilter == category,
+                    onClick = { categoryFilter = if (categoryFilter == category) null else category },
+                    label = { Text(category) },
+                )
+            }
+        }
+        if (filtered.isEmpty()) {
+            EmptyState(
+                title = stringResource(R.string.search_no_results_title),
+                body = stringResource(R.string.search_no_results_body),
+            )
+        } else {
+            LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd)) {
+                items(filtered, key = { it.id.value }) { expense ->
+                    ExpenseRow(state, expense, onOpenExpense, onDuplicateExpense)
+                }
+            }
         }
     }
 }

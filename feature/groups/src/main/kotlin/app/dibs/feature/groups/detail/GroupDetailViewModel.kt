@@ -72,6 +72,11 @@ class GroupDetailViewModel @Inject constructor(
         viewModelScope.launch { ledger.append(groupId, payload) }
     }
 
+    /** FR-G4: archive is shared, reversible state; the group stays readable. */
+    fun setArchived(archived: Boolean) {
+        viewModelScope.launch { ledger.append(groupId, OpPayload.SetArchived(archived)) }
+    }
+
     /** FR-S3/S4: settlements are their own transaction type; partial amounts welcome. */
     fun recordSettlement(from: MemberId, to: MemberId, amount: Money, currency: CurrencyCode, kind: String? = null) {
         if (!amount.isPositive || from == to) return

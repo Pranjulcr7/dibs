@@ -148,6 +148,8 @@ data class GroupState(
     val invites: SortedMap<InviteId, InviteState> = TreeMap(),
     /** Null until a SetJoinPolicy op ever ran — keeps pre-identity groups rendering unchanged. */
     val joinApprovalRequired: Boolean? = null,
+    /** Null until a SetArchived op ever ran (FR-G4). */
+    val archived: Boolean? = null,
 ) {
 
     /** Expenses visible in normal lists; tombstoned ones live in [trash]. */
@@ -200,6 +202,7 @@ data class GroupState(
                 .append('|').append(m.adHoc).append('\n')
         }
         joinApprovalRequired?.let { append("jp|").append(it).append('\n') }
+        archived?.let { append("ar|").append(it).append('\n') }
         members.values.forEach { member ->
             append("m|").append(member.id.value).append('|').append(member.name.length).append(':')
                 .append(member.name).append('|').append(member.active)

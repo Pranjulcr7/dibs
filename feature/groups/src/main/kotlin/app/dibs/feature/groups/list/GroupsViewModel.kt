@@ -29,6 +29,7 @@ data class GroupCardUi(
     /** Positive = you are owed, negative = you owe, zero = settled; null when this device has no self member. */
     val myNet: Money?,
     val currency: CurrencyCode?,
+    val archived: Boolean = false,
 )
 
 sealed interface GroupsUiState {
@@ -56,8 +57,11 @@ class GroupsViewModel @Inject constructor(
         combine(states, settingsStore.settings) { groupStates, settings ->
             GroupsUiState.Content(
                 groupStates
+                    // Ad-hoc "just this once" groups stay off the list (FR-G5);
+                    // their expenses surface via the Activity feed.
+                    .filterNot { it.meta?.adHoc == true }
                     .map { state -> state.toCard(settings.selfMembers[state.groupId]) }
-                    .sortedBy { it.name.lowercase() },
+                    .sortedWith(compareBy<GroupCardUi> { it.archived }.thenBy { it.name.lowercase() }),
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), GroupsUiState.Loading)
 
@@ -77,6 +81,7 @@ class GroupsViewModel @Inject constructor(
             memberCount = members.values.count { !it.removed },
             myNet = net,
             currency = currency,
+            archived = archived == true,
         )
     }
 

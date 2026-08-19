@@ -49,6 +49,7 @@ object GroupProjector {
         is OpPayload.ClaimMember -> applyClaimMember(state, op, payload)
         is OpPayload.ApproveMember -> applyApproveMember(state, op, payload)
         is OpPayload.RemoveMember -> applyRemoveMember(state, op, payload)
+        is OpPayload.SetArchived -> state.copy(archived = payload.archived)
         is OpPayload.SetJoinPolicy -> applySetJoinPolicy(state, op, payload)
     }
 

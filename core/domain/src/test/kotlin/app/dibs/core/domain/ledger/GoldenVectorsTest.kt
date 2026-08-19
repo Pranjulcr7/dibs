@@ -181,6 +181,7 @@ object GoldenFixtures {
         add(OpPayload.DeactivateMember(alice))
         add(OpPayload.ReactivateMember(alice))
         add(OpPayload.EditGroup(colorArgb = ColorEdit(null), defaultCurrency = CurrencyCode("USD")))
+        add(OpPayload.SetArchived(archived = true))
         return ops
     }
 
@@ -238,6 +239,7 @@ object GoldenFixtures {
     val EXPECTED_META_FOLD_CANONICAL_STATE: String = listOf(
         "state|11111111-1111-4111-8111-111111111111",
         "g|11:Lisbon 2026|null|null|USD|false",
+        "ar|true",
         "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,9bc4a93d6429947d598208ecc6eb6d990afe2bff3dd57fd3e51c8bc9c5d3354d,dddddddd-dddd-4ddd-8ddd-dddddddddddd,3",
     ).joinToString("\n", postfix = "\n")
 
