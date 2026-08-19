@@ -65,6 +65,25 @@ class GroupsViewModel @Inject constructor(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), GroupsUiState.Loading)
 
+    /** Hilt can't inject a lambda; tests override this to pin the clock. */
+    internal var wallClock: () -> Long = System::currentTimeMillis
+
+    /**
+     * FR-I5: nudge when the ledger changed since the last backup *and* that
+     * backup is missing or older than 30 days. Op count, not content diffing:
+     * the log is append-only, so "the count moved" is exactly "it changed".
+     */
+    val backupNudge: StateFlow<Boolean> =
+        combine(states, settingsStore.settings) { _, settings -> settings }
+            .map { settings ->
+                val opCount = ledger.totalOpCount()
+                val changed = opCount > 0 && opCount != settings.backedUpOpCount
+                val stale = settings.lastBackupAtMillis
+                    ?.let { wallClock() - it > BACKUP_STALE_MILLIS }
+                    ?: true
+                changed && stale
+            }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), false)
+
     private fun GroupState.toCard(selfMember: app.dibs.core.domain.model.MemberId?): GroupCardUi {
         // The card shows the group's default currency; cross-currency positions
         // are never summed (SPEC §6.5 case 53) and get their detail in-group.
@@ -87,5 +106,6 @@ class GroupsViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT = 5_000L
+        const val BACKUP_STALE_MILLIS = 30L * 24 * 60 * 60 * 1000
     }
 }

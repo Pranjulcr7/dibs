@@ -80,10 +80,21 @@ private fun DibsNavHost(initialRoute: String? = null) {
             HomeScaffold(
                 onOpenGroup = { navController.navigate("group/${it.value}") },
                 onCreateGroup = { navController.navigate("create-group") },
+                onImport = { navController.navigate("import") },
                 onAddExpense = { groupId -> navController.navigate("group/${groupId.value}/expense/new") },
                 onOpenExpense = { groupId, expenseId ->
                     navController.navigate("group/${groupId.value}/expense/${expenseId.value}")
                 },
+            )
+        }
+        composable("import") {
+            app.dibs.feature.groups.importer.ImportRoute(
+                onDone = { groupId ->
+                    navController.navigate("group/${groupId.value}") {
+                        popUpTo("home")
+                    }
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable("create-group") {
@@ -154,14 +165,13 @@ private fun HomeScaffold(
     onCreateGroup: () -> Unit,
     onAddExpense: (app.dibs.core.domain.model.GroupId) -> Unit,
     onOpenExpense: (app.dibs.core.domain.model.GroupId, app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onImport: () -> Unit,
     quickAdd: QuickAddViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     var showGroupPicker by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val comingSoon = stringResource(R.string.coming_soon)
-    val notYet: () -> Unit = { scope.launch { snackbarHostState.showSnackbar(comingSoon) } }
     val targets by quickAdd.targets.collectAsState()
 
     Scaffold(
@@ -200,7 +210,8 @@ private fun HomeScaffold(
             HomeTab.GROUPS -> GroupsRoute(
                 onOpenGroup = onOpenGroup,
                 onCreateGroup = onCreateGroup,
-                onImportFromSplitwise = notYet,
+                onImportFromSplitwise = onImport,
+                onBackUp = { selectedTab = HomeTab.SETTINGS.ordinal },
                 modifier = contentModifier,
             )
             HomeTab.ACTIVITY -> ActivityRoute(

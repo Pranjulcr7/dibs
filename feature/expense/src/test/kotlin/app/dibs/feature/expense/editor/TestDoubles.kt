@@ -55,6 +55,8 @@ class FakeLedger(
     }
 
     override suspend fun pendingCount(groupId: GroupId): Int = ledgerFor(groupId).log.pending.size
+
+    override suspend fun totalOpCount(): Long = ledgers.values.sumOf { it.log.all.size.toLong() }
 }
 
 class FakeSettingsStore(initial: UserSettings = UserSettings()) : SettingsStore {

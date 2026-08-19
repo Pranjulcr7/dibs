@@ -32,4 +32,11 @@ interface Ledger {
 
     /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
     suspend fun pendingCount(groupId: GroupId): Int
+
+    /**
+     * Total applied ops across every group. The backup reminder (FR-I5) compares
+     * this against the count captured at the last backup: "the ledger has
+     * changed" is exactly "this number moved", with no clock involved.
+     */
+    suspend fun totalOpCount(): Long
 }

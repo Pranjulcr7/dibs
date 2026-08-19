@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.feature.groups.detail
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Column
@@ -53,6 +55,9 @@ import app.dibs.core.ui.money.MoneyFormatter
 import app.dibs.core.ui.theme.Dimens
 import app.dibs.core.ui.theme.LocalMoneyColors
 import app.dibs.feature.groups.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun GroupDetailRoute(
@@ -65,6 +70,22 @@ fun GroupDetailRoute(
     viewModel: GroupDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv"),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val csv = viewModel.exportCsv()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(csv.toByteArray(Charsets.UTF_8))
+                    }
+                }
+            }
+        }
+    }
     GroupDetailScreen(
         uiState = uiState,
         onBack = onBack,
@@ -76,6 +97,10 @@ fun GroupDetailRoute(
         onRecordSettlement = viewModel::recordSettlement,
         onOpenTrash = onOpenTrash,
         onSetArchived = viewModel::setArchived,
+        onExportCsv = {
+            val name = uiState.state?.meta?.name?.ifBlank { null } ?: "dibs-group"
+            exportLauncher.launch("$name.csv")
+        },
     )
 }
 
@@ -94,6 +119,7 @@ fun GroupDetailScreen(
     onOpenTrash: () -> Unit,
     onSetArchived: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onExportCsv: () -> Unit = {},
 ) {
     val state = uiState.state ?: return
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -135,6 +161,13 @@ fun GroupDetailScreen(
                             onClick = {
                                 menuOpen = false
                                 onOpenTrash()
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.export_csv_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onExportCsv()
                             },
                         )
                         val archived = state.archived == true

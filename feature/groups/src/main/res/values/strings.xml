@@ -102,4 +102,26 @@
     <string name="quick_add_just_once">Just this once</string>
     <string name="quick_add_one_off_name">One-off</string>
     <string name="detail_more_actions">More actions</string>
+    <string name="import_title">Import from Splitwise</string>
+    <string name="import_pick_file">Choose the exported CSV file</string>
+    <string name="import_pick_hint">In Splitwise: group → Export as spreadsheet. Use the English export.</string>
+    <string name="import_bad_header">This doesn\'t look like an English Splitwise export. Re-export with your Splitwise language set to English, then try again.</string>
+    <string name="import_mapping_title">Who\'s who</string>
+    <string name="import_mapping_hint">Rename anyone if you like, and tell us which one is you.</string>
+    <string name="import_this_is_me">This is me</string>
+    <string name="import_group_name">Group name</string>
+    <string name="import_continue">Continue</string>
+    <string name="import_preview_title">Ready to import</string>
+    <string name="import_preview_members">%1$d members</string>
+    <string name="import_preview_expenses">%1$d expenses, %2$d payments</string>
+    <string name="import_preview_skipped">%1$d rows will be skipped</string>
+    <string name="import_preview_skipped_row">Line %1$d: %2$s</string>
+    <string name="import_checksum_warning">The file\'s own balance totals don\'t match its rows — the export may be incomplete. You can still import.</string>
+    <string name="import_already_imported">This file was already imported. Importing again would duplicate everything, so it\'s blocked.</string>
+    <string name="import_confirm">Import</string>
+    <string name="import_back">Back</string>
+    <string name="export_csv_action">Export CSV</string>
+    <string name="backup_banner_title">Back up your data</string>
+    <string name="backup_banner_body">Everything lives only on this phone. A backup file is your safety net.</string>
+    <string name="backup_banner_action">Back up</string>
 </resources>

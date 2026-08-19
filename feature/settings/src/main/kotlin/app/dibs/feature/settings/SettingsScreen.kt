@@ -43,6 +43,44 @@ private val CurrencyChoices = listOf(
 @Composable
 fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = hiltViewModel()) {
     val settings by viewModel.settings.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showBackupDialog by rememberSaveable { mutableStateOf(false) }
+    var pendingPassphrase by androidx.compose.runtime.remember {
+        mutableStateOf<CharArray?>(null)
+    }
+    var restoreUri by androidx.compose.runtime.remember {
+        mutableStateOf<android.net.Uri?>(null)
+    }
+
+    val createLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { uri ->
+        val passphrase = pendingPassphrase
+        pendingPassphrase = null
+        if (uri != null && passphrase != null) {
+            viewModel.backUp(passphrase) { context.contentResolver.openOutputStream(uri) }
+        }
+    }
+    val openLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) restoreUri = uri
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.backupEvents.collect { event ->
+            val text = when (event) {
+                BackupEvent.BackedUp -> context.getString(R.string.toast_backed_up)
+                BackupEvent.BackupFailed -> context.getString(R.string.toast_backup_failed)
+                is BackupEvent.Restored ->
+                    context.getString(R.string.toast_restored, event.groups, event.opsAdded)
+                BackupEvent.RestoreRejected -> context.getString(R.string.toast_restore_rejected)
+                BackupEvent.RestoreFailed -> context.getString(R.string.toast_restore_failed)
+            }
+            android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
     settings?.let { current ->
         SettingsScreen(
             settings = current,
@@ -53,6 +91,28 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
             onAppLock = viewModel::setAppLock,
             onBlockScreenshots = viewModel::setBlockScreenshots,
             modifier = modifier,
+            onBackUpClick = { showBackupDialog = true },
+            onRestoreClick = { openLauncher.launch(arrayOf("*/*")) },
+        )
+    }
+
+    if (showBackupDialog) {
+        BackupPassphraseDialog(
+            onConfirm = { passphrase ->
+                showBackupDialog = false
+                pendingPassphrase = passphrase
+                createLauncher.launch("dibs-backup-" + java.time.LocalDate.now() + ".dibs")
+            },
+            onDismiss = { showBackupDialog = false },
+        )
+    }
+    restoreUri?.let { uri ->
+        RestorePassphraseDialog(
+            onConfirm = { passphrase ->
+                restoreUri = null
+                viewModel.restore(passphrase) { context.contentResolver.openInputStream(uri) }
+            },
+            onDismiss = { restoreUri = null },
         )
     }
 }
@@ -69,6 +129,8 @@ fun SettingsScreen(
     onAppLock: (Boolean) -> Unit,
     onBlockScreenshots: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    onBackUpClick: () -> Unit = {},
+    onRestoreClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier
@@ -155,6 +217,37 @@ fun SettingsScreen(
             onChange = onBlockScreenshots,
             tag = "block-screenshots",
         )
+
+        SectionHeader(R.string.settings_section_backup)
+        Text(
+            stringResource(R.string.settings_backup_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            settings.lastBackupAtMillis?.let { millis ->
+                stringResource(
+                    R.string.settings_backup_last,
+                    android.icu.text.DateFormat.getDateInstance(android.icu.text.DateFormat.MEDIUM)
+                        .format(java.util.Date(millis)),
+                )
+            } ?: stringResource(R.string.settings_backup_never),
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm)) {
+            androidx.compose.material3.Button(
+                onClick = onBackUpClick,
+                modifier = Modifier.testTag("backup-now"),
+            ) {
+                Text(stringResource(R.string.settings_backup_now))
+            }
+            androidx.compose.material3.OutlinedButton(
+                onClick = onRestoreClick,
+                modifier = Modifier.testTag("backup-restore"),
+            ) {
+                Text(stringResource(R.string.settings_backup_restore))
+            }
+        }
 
         SectionHeader(R.string.settings_section_about)
         Card(modifier = Modifier.fillMaxWidth()) {

@@ -44,16 +44,20 @@ fun GroupsRoute(
     onOpenGroup: (GroupId) -> Unit,
     onCreateGroup: () -> Unit,
     onImportFromSplitwise: () -> Unit,
+    onBackUp: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: GroupsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val backupNudge by viewModel.backupNudge.collectAsState()
     GroupsScreen(
         uiState = uiState,
         onOpenGroup = onOpenGroup,
         onCreateGroup = onCreateGroup,
         onImportFromSplitwise = onImportFromSplitwise,
         modifier = modifier,
+        showBackupNudge = backupNudge,
+        onBackUp = onBackUp,
     )
 }
 
@@ -65,6 +69,8 @@ fun GroupsScreen(
     onCreateGroup: () -> Unit,
     onImportFromSplitwise: () -> Unit,
     modifier: Modifier = Modifier,
+    showBackupNudge: Boolean = false,
+    onBackUp: () -> Unit = {},
 ) {
     when (uiState) {
         GroupsUiState.Loading -> Spacer(modifier)
@@ -88,6 +94,9 @@ fun GroupsScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd),
                     verticalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
                 ) {
+                    if (showBackupNudge) {
+                        item(key = "backup-nudge") { BackupNudgeCard(onBackUp) }
+                    }
                     val (archived, active) = uiState.groups.partition { it.archived }
                     items(active, key = { it.id.value }) { card ->
                         GroupCard(card, onClick = { onOpenGroup(card.id) })
@@ -106,6 +115,30 @@ fun GroupsScreen(
                     }
                 }
             }
+    }
+}
+
+/** FR-I5: shows only when the ledger changed and the last backup is missing or over 30 days old. */
+@Composable
+private fun BackupNudgeCard(onBackUp: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(Dimens.spacingMd)) {
+            Text(
+                stringResource(R.string.backup_banner_title),
+                style = MaterialTheme.typography.titleSmall,
+            )
+            Text(
+                stringResource(R.string.backup_banner_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onBackUp,
+                modifier = Modifier.padding(top = Dimens.spacingXs),
+            ) {
+                Text(stringResource(R.string.backup_banner_action))
+            }
+        }
     }
 }
 

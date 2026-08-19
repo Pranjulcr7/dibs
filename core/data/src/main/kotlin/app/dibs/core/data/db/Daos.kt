@@ -22,6 +22,9 @@ interface OpDao {
 
     @Query("SELECT DISTINCT groupId FROM ops")
     suspend fun groupIds(): List<String>
+
+    @Query("SELECT COUNT(*) FROM ops")
+    suspend fun countAll(): Long
 }
 
 @Dao

@@ -95,6 +95,8 @@ class LedgerRepository(
     /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
     override suspend fun pendingCount(groupId: GroupId): Int = mutex.withLock { loadLocked(groupId).log.pending.size }
 
+    override suspend fun totalOpCount(): Long = db.opDao().countAll()
+
     /** Every op known for the group (for sync and for reference folds in tests). */
     suspend fun allOps(groupId: GroupId): List<Op> = mutex.withLock { loadLocked(groupId).log.all.toList() }
 

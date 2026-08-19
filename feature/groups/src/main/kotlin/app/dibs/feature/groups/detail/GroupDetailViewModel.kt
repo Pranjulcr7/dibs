@@ -4,6 +4,7 @@ package app.dibs.feature.groups.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.dibs.core.domain.importer.CsvExport
 import app.dibs.core.domain.ledger.EmojiEdit
 import app.dibs.core.domain.ledger.GroupState
 import app.dibs.core.domain.ledger.Ledger
@@ -94,6 +95,9 @@ class GroupDetailViewModel @Inject constructor(
             )
         }
     }
+
+    /** FR-I2: the group's ledger as a Splitwise-shaped CSV (itself re-importable). */
+    suspend fun exportCsv(): String = CsvExport.export(ledger.state(groupId))
 
     private companion object {
         const val STOP_TIMEOUT = 5_000L
