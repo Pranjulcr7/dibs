@@ -154,6 +154,47 @@ class RuleBasedLayoutParserTest : FunSpec({
         draft.items shouldBe listOf(ReceiptItem("Latte", 1, 450), ReceiptItem("Bagel", 1, 325))
     }
 
+    // -- zero-decimal currencies (corpus-found: IDR/JPY receipts print no cents) --
+
+    test("given a zero-decimal-currency receipt with grouped prices then integer mode reads it") {
+        val boxes = row("Jasmine tea L", "24,000") + row("Coconut jelly", "4,000") +
+            row("Sub total", "28,000") + row("Total", "28,000") + row("Cash", "100,000")
+
+        val draft = RuleBasedLayoutParser.parse(boxes)
+        draft.items shouldBe listOf(
+            ReceiptItem("Jasmine tea L", 1, 24_000),
+            ReceiptItem("Coconut jelly", 1, 4_000),
+        )
+        draft.totalMinor shouldBe 28_000
+        draft.gatePassed.shouldNotBeNull().shouldBeTrue()
+    }
+
+    test("given bare integer prices then integer mode reads them but never eats a decimal receipt's digits") {
+        val boxes = row("Bakso", "17500") + row("Batagor", "46000") + row("Total", "63500")
+        val draft = RuleBasedLayoutParser.parse(boxes)
+        draft.items.map { it.totalMinor } shouldBe listOf(17_500L, 46_000L)
+        draft.gatePassed.shouldNotBeNull().shouldBeTrue()
+
+        // A receipt with two-decimal prices stays in decimal mode: "91000"
+        // style integers are not parsed there.
+        RuleBasedLayoutParser.parseIntegerPrice("60.000") shouldBe 60_000L
+        RuleBasedLayoutParser.parseIntegerPrice("25,000") shouldBe 25_000L
+        RuleBasedLayoutParser.parseIntegerPrice("12") shouldBe null
+        RuleBasedLayoutParser.parseIntegerPrice("Rp. 111,000") shouldBe 111_000L
+    }
+
+    test("given a discount row after the subtotal then it becomes a negative item and the gate holds") {
+        // Corpus-found shape: SUB_TOTAL 194,000 / DISCOUNT 19,400 / TOTAL 174,600.
+        val boxes = row("Ice coffee", "82,000") + row("Avocado coffee", "61,000") +
+            row("Chicken katsu", "51,000") + row("Sub total", "194,000") +
+            row("Discount", "19,400") + row("Total", "174,600")
+
+        val draft = RuleBasedLayoutParser.parse(boxes)
+        draft.items.last() shouldBe ReceiptItem("Discount", 1, -19_400)
+        draft.gatePassed.shouldNotBeNull().shouldBeTrue()
+        draft.flags shouldBe emptySet<ReceiptFlag>()
+    }
+
     // -- multi-frame (FR-R7) ----------------------------------------------
 
     test("edge 35 — given two frames overlapping at the boundary then boundary items dedupe once") {

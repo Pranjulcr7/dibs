@@ -22,6 +22,7 @@ import kotlin.math.min
  * Prices must have exactly two decimals ("12.34"); receipts print cents, and
  * requiring them is the cheapest defense against quantity/date noise.
  */
+@Suppress("TooManyFunctions") // one small named rule per function beats fewer, longer ones
 object RuleBasedLayoutParser {
 
     fun parse(boxes: List<TextBox>): ReceiptDraft {
@@ -30,7 +31,17 @@ object RuleBasedLayoutParser {
         }
 
         val rows = groupIntoRows(boxes)
-        val priced = rows.mapNotNull { row -> pricedRowOf(row) }
+        // Two-pass price detection: strict two-decimal prices first (Western
+        // receipts). When the receipt clearly isn't printing cents — fewer
+        // than two decimal prices — fall back to integer mode for
+        // zero-decimal currencies (JPY, IDR, KRW: "25,000", "91000"), a gap
+        // the SROIE/CORD layout corpus exposed.
+        val decimalPriced = rows.mapNotNull { row -> pricedRowOf(row, integerMode = false) }
+        val priced = if (decimalPriced.size >= MIN_PRICED_ROWS) {
+            decimalPriced
+        } else {
+            rows.mapNotNull { row -> pricedRowOf(row, integerMode = true) }
+        }
         if (priced.isEmpty()) {
             return ReceiptDraft(flags = setOf(ReceiptFlag.LOW_TEXT))
         }
@@ -40,6 +51,10 @@ object RuleBasedLayoutParser {
         val tolerance = (pageWidth * COLUMN_TOLERANCE_FRACTION).toInt().coerceAtLeast(1)
         val monetary = priced.filter { abs(it.priceBox.right - column) <= tolerance }
 
+        return accumulate(monetary)
+    }
+
+    private class Accumulator {
         var subtotal: Long? = null
         var tax: Long? = null
         var tip: Long? = null
@@ -47,57 +62,66 @@ object RuleBasedLayoutParser {
         val items = mutableListOf<ReceiptItem>()
         var unparsed = false
         var summarySeen = false
+    }
 
-        monetary.forEach { row ->
-            val label = row.label.trim()
-            val kind = classify(label)
-            when (kind) {
-                RowKind.SUBTOTAL -> {
-                    subtotal = row.amountMinor
-                    summarySeen = true
-                }
-                RowKind.TAX -> {
-                    tax = (tax ?: 0L) + row.amountMinor
-                    summarySeen = true
-                }
-                RowKind.TIP -> {
-                    tip = row.amountMinor
-                    summarySeen = true
-                }
-                RowKind.TOTAL -> {
-                    // The last total wins: receipts often print running totals.
-                    total = row.amountMinor
-                    summarySeen = true
-                }
-                RowKind.IGNORED -> Unit
-                RowKind.ITEM ->
-                    if (summarySeen) {
-                        // A price row after the summary block that we can't
-                        // name — flag it instead of guessing (edge 36).
-                        unparsed = true
-                    } else {
-                        items += itemOf(label, row.amountMinor)
-                    }
-            }
-        }
+    private fun accumulate(monetary: List<PricedRow>): ReceiptDraft {
+        val acc = Accumulator()
+        monetary.forEach { row -> apply(acc, row) }
 
         val flags = mutableSetOf<ReceiptFlag>()
-        if (unparsed) flags += ReceiptFlag.UNPARSED_REGIONS
-        if (items.isEmpty() && total != null) flags += ReceiptFlag.TOTAL_ONLY
-        if (items.isEmpty() && total == null) flags += ReceiptFlag.LOW_TEXT
+        if (acc.unparsed) flags += ReceiptFlag.UNPARSED_REGIONS
+        if (acc.items.isEmpty() && acc.total != null) flags += ReceiptFlag.TOTAL_ONLY
+        if (acc.items.isEmpty() && acc.total == null) flags += ReceiptFlag.LOW_TEXT
 
-        val gate = gate(items, subtotal, tax, tip, total)
+        val gate = gate(acc.items, acc.subtotal, acc.tax, acc.tip, acc.total)
         if (gate == false) flags += ReceiptFlag.ARITHMETIC_MISMATCH
 
         return ReceiptDraft(
-            items = items,
-            subtotalMinor = subtotal,
-            taxMinor = tax,
-            tipMinor = tip,
-            totalMinor = total,
+            items = acc.items,
+            subtotalMinor = acc.subtotal,
+            taxMinor = acc.tax,
+            tipMinor = acc.tip,
+            totalMinor = acc.total,
             gatePassed = gate,
             flags = flags,
         )
+    }
+
+    private fun apply(acc: Accumulator, row: PricedRow) {
+        val label = row.label.trim()
+        when (classify(label)) {
+            RowKind.SUBTOTAL -> {
+                acc.subtotal = row.amountMinor
+                acc.summarySeen = true
+            }
+            RowKind.TAX -> {
+                acc.tax = (acc.tax ?: 0L) + row.amountMinor
+                acc.summarySeen = true
+            }
+            RowKind.TIP -> {
+                acc.tip = row.amountMinor
+                acc.summarySeen = true
+            }
+            RowKind.TOTAL -> {
+                // The last total wins: receipts often print running totals.
+                acc.total = row.amountMinor
+                acc.summarySeen = true
+            }
+            RowKind.IGNORED -> Unit
+            RowKind.DISCOUNT ->
+                // Printed positive, means subtract ("DISCOUNT 19,400").
+                // Modeled as a negative item so the gate math holds and tax
+                // proration sees the reduced subtotal (edge 41).
+                acc.items += ReceiptItem(label = label, totalMinor = -abs(row.amountMinor))
+            RowKind.ITEM ->
+                if (acc.summarySeen) {
+                    // A price row after the summary block that we can't
+                    // name — flag it instead of guessing (edge 36).
+                    acc.unparsed = true
+                } else {
+                    acc.items += itemOf(label, row.amountMinor)
+                }
+        }
     }
 
     /**
@@ -141,6 +165,15 @@ object RuleBasedLayoutParser {
         return ReceiptDraft(items, subtotal, tax, tip, total, gate, flags)
     }
 
+    /** Re-runs the arithmetic gate after review-screen edits (FR-R4). */
+    fun withRecomputedGate(draft: ReceiptDraft): ReceiptDraft {
+        val gate = gate(draft.items, draft.subtotalMinor, draft.taxMinor, draft.tipMinor, draft.totalMinor)
+        val flags = draft.flags.toMutableSet()
+        flags.remove(ReceiptFlag.ARITHMETIC_MISMATCH)
+        if (gate == false) flags += ReceiptFlag.ARITHMETIC_MISMATCH
+        return draft.copy(gatePassed = gate, flags = flags)
+    }
+
     private fun ReceiptItem.key() = label.lowercase() to totalMinor
 
     private fun gate(items: List<ReceiptItem>, subtotal: Long?, tax: Long?, tip: Long?, total: Long?): Boolean? {
@@ -148,7 +181,12 @@ object RuleBasedLayoutParser {
         val itemsSum = items.sumOf { it.totalMinor }
         val expected = itemsSum + (tax ?: 0L) + (tip ?: 0L)
         val totalOk = abs(expected - total) <= TOLERANCE_MINOR
-        val subtotalOk = subtotal == null || abs(itemsSum - subtotal) <= TOLERANCE_MINOR
+        // A printed subtotal may sit before or after discount lines, so it may
+        // equal either the net item sum or the positive-items sum.
+        val positiveSum = items.filter { it.totalMinor > 0 }.sumOf { it.totalMinor }
+        val subtotalOk = subtotal == null ||
+            abs(itemsSum - subtotal) <= TOLERANCE_MINOR ||
+            abs(positiveSum - subtotal) <= TOLERANCE_MINOR
         return totalOk && subtotalOk
     }
 
@@ -178,9 +216,10 @@ object RuleBasedLayoutParser {
 
     private data class PricedRow(val label: String, val amountMinor: Long, val priceBox: TextBox)
 
-    private fun pricedRowOf(row: List<TextBox>): PricedRow? {
-        val priceBox = row.lastOrNull { parsePrice(it.text) != null } ?: return null
-        val amount = parsePrice(priceBox.text) ?: return null
+    private fun pricedRowOf(row: List<TextBox>, integerMode: Boolean): PricedRow? {
+        fun priceOf(text: String): Long? = parsePrice(text) ?: if (integerMode) parseIntegerPrice(text) else null
+        val priceBox = row.lastOrNull { priceOf(it.text) != null } ?: return null
+        val amount = priceOf(priceBox.text) ?: return null
         val label = row.filterNot { it === priceBox }.joinToString(" ") { it.text }
         return PricedRow(label, amount, priceBox)
     }
@@ -209,6 +248,22 @@ object RuleBasedLayoutParser {
         return if (negative) -minor else minor
     }
 
+    private val INTEGER_PRICE =
+        Regex("""^\(?-?(?:Rp\.?|[$€£¥])?\s?(\d{1,3}(?:[.,]\d{3})+|\d{3,9})\)?-?$""")
+
+    /**
+     * Zero-decimal-currency prices: grouped ("25,000", "60.000") or bare
+     * ("91000", min three digits so quantity columns can't match). Minor
+     * units equal the printed value — exponent-0 semantics.
+     */
+    internal fun parseIntegerPrice(raw: String): Long? {
+        val text = raw.trim()
+        val match = INTEGER_PRICE.matchEntire(text) ?: return null
+        val negative = text.startsWith("(") || text.contains('-')
+        val value = match.groupValues[1].replace(",", "").replace(".", "").toLongOrNull() ?: return null
+        return if (negative) -value else value
+    }
+
     private val QUANTITY_PREFIX = Regex("""^(\d{1,3})\s*[xX@]\s+""")
     private val QUANTITY_WORD = Regex("""^QTY\s*[:.]?\s*(\d{1,3})\s+""", RegexOption.IGNORE_CASE)
 
@@ -223,30 +278,31 @@ object RuleBasedLayoutParser {
         return ReceiptItem(label, 1, amountMinor)
     }
 
-    private enum class RowKind { ITEM, SUBTOTAL, TAX, TIP, TOTAL, IGNORED }
+    private enum class RowKind { ITEM, SUBTOTAL, TAX, TIP, TOTAL, DISCOUNT, IGNORED }
+
+    /** Ordered: the first kind with a matching keyword wins (SUBTOTAL before TOTAL matters). */
+    private val KEYWORDS = listOf(
+        RowKind.SUBTOTAL to listOf("SUBTOTAL", "SUB-TOTAL", "SUB TOTAL", "SUB_TOTAL", "SUBTTL"),
+        RowKind.TAX to listOf("TAX", "VAT", "GST", "HST"),
+        RowKind.TIP to listOf("TIP", "GRATUITY", "SERVICE CHARGE"),
+        RowKind.TOTAL to listOf("TOTAL", "AMOUNT DUE", "BALANCE DUE"),
+        RowKind.DISCOUNT to listOf("DISC", "COUPON", "PROMO SAVING"),
+        RowKind.IGNORED to listOf(
+            "CASH", "CHANGE", "CARD", "TENDER", "VISA", "MASTERCARD",
+            "TUNAI", "KEMBALI", "QRIS", "DEBIT", "EDC", "ROUNDING",
+        ),
+    )
 
     private fun classify(label: String): RowKind {
         val upper = label.uppercase()
-        return when {
-            upper.contains("SUBTOTAL") || upper.contains("SUB-TOTAL") || upper.contains("SUB TOTAL") ->
-                RowKind.SUBTOTAL
-            upper.contains("TAX") || upper.contains("VAT") || upper.contains("GST") || upper.contains("HST") ->
-                RowKind.TAX
-            upper.contains("TIP") || upper.contains("GRATUITY") || upper.contains("SERVICE CHARGE") ->
-                RowKind.TIP
-            upper.contains("TOTAL") || upper.contains("AMOUNT DUE") || upper.contains("BALANCE DUE") ->
-                RowKind.TOTAL
-            upper.contains("CASH") || upper.contains("CHANGE") || upper.contains("CARD") ||
-                upper.contains("TENDER") || upper.contains("VISA") || upper.contains("MASTERCARD") ->
-                RowKind.IGNORED
-            else -> RowKind.ITEM
-        }
+        return KEYWORDS.firstOrNull { (_, words) -> words.any(upper::contains) }?.first ?: RowKind.ITEM
     }
 
     /** The 0.02 arithmetic gate, in minor units. */
     const val TOLERANCE_MINOR = 2L
     private const val MINOR_PER_UNIT = 100L
     private const val MIN_BOXES = 3
+    private const val MIN_PRICED_ROWS = 2
     private const val ROW_OVERLAP_FRACTION = 0.5
     private const val COLUMN_TOLERANCE_FRACTION = 0.08
     private const val COLUMN_SEED_BAND = 12

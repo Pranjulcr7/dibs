@@ -84,6 +84,5 @@ interface ReceiptParser {
 
 /** The always-available tier: scan simply isn't offered. Manual entry is primary regardless. */
 object NoOpReceiptParser : ReceiptParser {
-    override suspend fun parse(frames: List<ReceiptFrame>): ReceiptParser.Result =
-        ReceiptParser.Result.NothingFound
+    override suspend fun parse(frames: List<ReceiptFrame>): ReceiptParser.Result = ReceiptParser.Result.NothingFound
 }
