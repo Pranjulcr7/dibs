@@ -42,14 +42,17 @@ Violating any of these is a bug regardless of what a task description says.
 Multi-module, strict dependency direction (arrows point at dependencies):
 
 ```
-:app  ->  :feature:*  ->  :core:domain
-                      ->  :core:data   ->  :core:domain
-          :core:ocr    ->  :core:domain
+:app  ->  :feature:*  ->  :core:ui  ->  :core:domain
+                       ->  :core:domain
+:app  ->  :core:data   ->  :core:domain      (composition root: binds domain
+          :core:ocr    ->  :core:domain       interfaces to implementations)
           :core:sync   ->  :core:domain
 ```
 
 - `:core:domain` — pure Kotlin. Money, Expense, Group, split algorithms,
   settlement, the op-log CRDT. No Android, no Room, no coroutines-android.
+- `:core:ui` — design system: theme, tokens, shared components, icu-backed
+  formatting. No business logic (added by D20).
 - `:core:data` — Room + SQLCipher, repositories, op-log persistence, DataStore.
 - `:core:ocr` — receipt capture pipeline behind a `ReceiptParser` interface.
 - `:core:sync` — invite codes, encryption, transport behind a `SyncTransport`
@@ -73,7 +76,7 @@ implementation leak into a feature module. The app must still build and run with
 | DI | Hilt |
 | Async | Coroutines + Flow |
 | Persistence | Room over SQLCipher |
-| Preferences | DataStore (Proto) |
+| Preferences | DataStore (typed via kotlinx-serialization; D21) |
 | Serialization | kotlinx.serialization |
 | Camera | CameraX |
 | Default OCR | ML Kit Text Recognition v2 (bundled, on-device) |

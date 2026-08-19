@@ -226,8 +226,9 @@ Screens:
 ```
 
 - All arithmetic in `Long`. Division returns `(quotient, remainder)`.
-- Minor-unit exponent read from `android.icu.util.Currency`, not assumed to be 2.
-  JPY and KRW are 0; BHD, KWD, TND are 3. A hardcoded `* 100` is a bug.
+- Minor-unit exponent from the domain's embedded ISO-4217 table (identical on
+  every device forever — DECISIONS D1), never assumed to be 2. JPY and KRW are
+  0; BHD, KWD, TND are 3. A hardcoded `* 100` is a bug.
 - Display formatting is the only place a locale-aware formatter appears.
 
 ### 5.2 Split algorithms and remainder handling
@@ -282,7 +283,7 @@ immutable financial facts. Build this in pure Kotlin:
 
 ```kotlin
 data class Op(
-  val id: OpId,            // BLAKE3 hash of the canonical serialized payload
+  val id: OpId,            // BLAKE3 hash of the whole op's canonical encoding (D11)
   val groupId: GroupId,
   val lamport: Long,
   val deviceId: DeviceId,
@@ -522,8 +523,8 @@ Each of these needs a test. Grouped by area.
 | 63 | Storage full on save | Specific error, retry, offer to clear receipt images |
 | 64 | Database migration failure | Auto-restore the pre-migration backup, report clearly |
 | 65 | App killed during import | Import is transactional; either fully applied or not at all |
-| 66 | Time zone change mid-trip | Dates stored as UTC instants plus the originating zone; displayed in the user's current zone with the original date preserved for the expense day |
-| 67 | DST transition | Instant-based storage makes this a non-issue; test it anyway |
+| 66 | Time zone change mid-trip | Superseded (D30): the expense date is a civil date (epoch day), not an instant — there is no zone to shift. Op wall clocks remain display-only metadata |
+| 67 | DST transition | Superseded (D30): civil-date storage has no DST behavior |
 | 68 | System font at 200% | No clipping on any screen |
 | 69 | Landscape and tablet | Responsive layout; no letterboxing |
 | 70 | Battery saver / Doze | WorkManager only; never a foreground service |
@@ -535,7 +536,7 @@ Each of these needs a test. Grouped by area.
 |---|---|---|
 | 72 | Stolen phone | App lock (biometric); SQLCipher at rest |
 | 73 | Screenshot of financial data | `FLAG_SECURE` as an opt-in setting |
-| 74 | Malicious group member forging ops | Ops are signed by device key; unsigned or invalid-signature ops rejected. Document that Dibs cannot stop a legitimate member from entering false expenses — that's a social problem |
+| 74 | Malicious group member forging ops | Membership ops signed by identity keys (§5.9), verified in the fold. Financial ops are authenticated at the sync boundary: a signed AnnounceDevice op binds deviceId→identity key and sync bundles are signed by the sender (M6; AUDIT T1). Dibs cannot stop a legitimate member from entering false expenses — that's a social problem |
 | 75 | Malicious relay dropping or replaying ops | Replay is idempotent; dropping is detected via a vector clock gap and shown as "some changes may be missing" |
 | 76 | Deep link with a crafted payload | Strict parsing, size caps, no reflection, fuzz-tested |
 | 77 | Backup file shared publicly | Encrypted at rest; passphrase strength meter enforced at creation |
@@ -543,6 +544,14 @@ Each of these needs a test. Grouped by area.
 ---
 
 ## 7. Model track (parallel, not blocking)
+
+**Status (2026-08-18): the VLM tier is deferred entirely** until a held-out
+eval set of 100+ real *photographed* receipts exists. ML Kit plus the
+rule-based layout parser is the shipping path for M5 and v1; the
+`ReceiptParser` interface keeps a future VLM implementation addable without
+touching feature modules. SROIE/CORD serve only as a layout-variety corpus for
+finding rule-parser bugs — they are scanned Southeast Asian receipts and do
+not predict performance on photographed Western receipts.
 
 Kept in a separate `model/` directory and a separate CI job. The app must ship
 without it.

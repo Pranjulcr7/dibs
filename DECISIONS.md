@@ -243,6 +243,23 @@ financial history (edge 13) — deactivation is the path for them; approval mode
 is a group-level LWW toggle (`SetJoinPolicy`) rather than a frozen-encoding
 change to CreateGroup.
 
+### D30. Expense dates are civil dates, not instants
+
+`ExpenseFields.dateEpochDay` stores the expense *day* as an epoch-day number.
+SPEC edge cases 66/67 assumed instant+zone storage; a civil date is what users
+mean by "the dinner on the 14th", cannot shift across timezones or DST, and is
+simpler — cases 66/67 are superseded. Op `wallClockMillis` stays display-only.
+
+### D31. Pre-release canonical-format exception
+
+The golden-vector rule ("never regenerate; bump the version and migrate")
+protects released users, of which there are none yet. Until the first tagged
+release, a canonical-format change may be made ONCE per need by bumping the
+format tag, regenerating all vectors in the same commit, and noting it here.
+First (and ideally last) use: `dibs-op-v2` adding `category` and `receiptRef`
+to `ExpenseFields` (AUDIT T2) so the field set is complete before real
+expenses exist. At first release this exception expires permanently.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

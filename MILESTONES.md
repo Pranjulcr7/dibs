@@ -68,6 +68,10 @@ Dibs backup out, restore on a clean install, balances identical.
 
 ## M5 — Receipt scanning
 
+> Scope note (2026-08-18): VLM tier dropped from this milestone entirely
+> (SPEC §7). Manual entry is the primary path; scanning is a convenience
+> layer. ML Kit + rules only, behind the `ReceiptParser` interface.
+
 CameraX capture with guide frame and quality hints. `ReceiptParser` interface.
 `MlKitReceiptParser` with the rule-based layout parser. The arithmetic gate. The
 mandatory review screen. Item assignment with fractional consumption.
@@ -77,6 +81,11 @@ Multi-frame capture. Manual line-item entry.
 photograph yourself — record the number in `PROGRESS.md` whatever it is.
 
 ## M6 — Sync tier 1
+
+> Pre-landed at M3.5 (commit 339e67d): identity key hierarchy, handles,
+> invite/claim/approve/remove/policy ops with signatures, canonical encodings
+> + golden vectors, convergence race tests, dibs://join codec. M6 is the
+> transport, join UI, and financial-op authentication (AUDIT T1).
 
 `SyncTransport` interface. `ManualFileTransport`. QR invite generation and
 scanning, `dibs://` deep links, per-group keys, XChaCha20-Poly1305 bundles,
