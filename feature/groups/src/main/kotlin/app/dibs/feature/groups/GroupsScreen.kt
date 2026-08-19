@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
+@file:Suppress("TooManyFunctions") // list, cards, activity feed and previews share this file
+
 package app.dibs.feature.groups
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -152,14 +155,59 @@ private fun NetPosition(card: GroupCardUi) {
     }
 }
 
-/** Stage 3a placeholder: the cross-group feed fills in once expenses exist (3c). */
+/** The cross-group feed (SPEC §4.1 bottom nav: Activity). */
 @Composable
-fun ActivityScreen(modifier: Modifier = Modifier) {
-    EmptyState(
-        title = stringResource(R.string.activity_empty_title),
-        body = stringResource(R.string.activity_empty_body),
-        modifier = modifier.fillMaxSize(),
-    )
+fun ActivityRoute(
+    onOpenExpense: (GroupId, app.dibs.core.domain.model.ExpenseId) -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: app.dibs.feature.groups.activity.ActivityViewModel = hiltViewModel(),
+) {
+    val items by viewModel.items.collectAsState()
+    ActivityScreen(items, onOpenExpense, modifier)
+}
+
+@Composable
+fun ActivityScreen(
+    items: List<app.dibs.feature.groups.activity.ActivityItem>?,
+    onOpenExpense: (GroupId, app.dibs.core.domain.model.ExpenseId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    when {
+        items == null -> Spacer(modifier)
+        items.isEmpty() -> EmptyState(
+            title = stringResource(R.string.activity_empty_title),
+            body = stringResource(R.string.activity_empty_body),
+            modifier = modifier.fillMaxSize(),
+        )
+        else -> LazyColumn(
+            modifier = modifier.fillMaxSize(),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd),
+        ) {
+            items(items, key = { "${it.groupId.value}-${it.expenseId.value}" }) { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenExpense(item.groupId, item.expenseId) }
+                        .padding(vertical = Dimens.spacingSm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(item.description, style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            stringResource(R.string.expenses_paid_by, item.payerName) + " " +
+                                stringResource(R.string.activity_row_in, item.groupLabel),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        MoneyFormatter.format(item.amount, item.currency),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private val previewCards = GroupsUiState.Content(

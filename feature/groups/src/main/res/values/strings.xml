@@ -56,4 +56,10 @@
     <string name="members_actions_for">Actions for %1$s</string>
     <string name="members_rename_title">Rename member</string>
     <string name="members_rename_label">Name</string>
+    <string name="expenses_paid_by">%1$s paid</string>
+    <string name="expenses_row_actions">Actions for %1$s</string>
+    <string name="expenses_duplicate">Duplicate</string>
+    <string name="expenses_deleted_rounding">%1$s absorbed %2$s rounding</string>
+    <string name="activity_row_in">in %1$s</string>
+    <string name="quick_add_pick_group">Add expense to…</string>
 </resources>

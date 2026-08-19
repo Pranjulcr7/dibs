@@ -48,7 +48,7 @@ class GroupsScreenTest {
     @Test
     fun `given no activity when the activity tab renders then its empty state explains what will appear`() {
         compose.setContent {
-            DibsTheme { ActivityScreen() }
+            DibsTheme { ActivityScreen(items = emptyList(), onOpenExpense = { _, _ -> }) }
         }
         compose.onNodeWithText("No activity yet").assertIsDisplayed()
     }

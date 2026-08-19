@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.feature.groups.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -57,6 +59,8 @@ fun GroupDetailRoute(
     onBack: () -> Unit,
     onOpenMembers: () -> Unit,
     onAddExpense: () -> Unit,
+    onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     viewModel: GroupDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -65,6 +69,8 @@ fun GroupDetailRoute(
         onBack = onBack,
         onOpenMembers = onOpenMembers,
         onAddExpense = onAddExpense,
+        onOpenExpense = onOpenExpense,
+        onDuplicateExpense = onDuplicateExpense,
         onEditGroup = viewModel::editGroup,
     )
 }
@@ -77,6 +83,8 @@ fun GroupDetailScreen(
     onBack: () -> Unit,
     onOpenMembers: () -> Unit,
     onAddExpense: () -> Unit,
+    onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onEditGroup: (name: String?, emoji: String?, currency: CurrencyCode?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -133,10 +141,7 @@ fun GroupDetailScreen(
                 }
             }
             when (selectedTab) {
-                0 -> EmptyState(
-                    title = stringResource(R.string.detail_expenses_empty_title),
-                    body = stringResource(R.string.detail_expenses_empty_body),
-                )
+                0 -> ExpensesTab(state, onOpenExpense, onDuplicateExpense)
                 1 -> BalancesTab(state, uiState.selfMember)
                 else -> EmptyState(
                     title = stringResource(R.string.detail_settle_empty_title),
@@ -156,6 +161,82 @@ fun GroupDetailScreen(
             },
             onDismiss = { showEditDialog = false },
         )
+    }
+}
+
+@Composable
+private fun ExpensesTab(
+    state: GroupState,
+    onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+) {
+    val active = state.activeExpenses.sortedWith(
+        compareByDescending<app.dibs.core.domain.ledger.ExpenseState> { it.fields.dateEpochDay }
+            .thenByDescending { it.id },
+    )
+    if (active.isEmpty()) {
+        EmptyState(
+            title = stringResource(R.string.detail_expenses_empty_title),
+            body = stringResource(R.string.detail_expenses_empty_body),
+        )
+        return
+    }
+    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd)) {
+        items(active, key = { it.id.value }) { expense ->
+            ExpenseRow(state, expense, onOpenExpense, onDuplicateExpense)
+        }
+    }
+}
+
+@Composable
+private fun ExpenseRow(
+    state: GroupState,
+    expense: app.dibs.core.domain.ledger.ExpenseState,
+    onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+    onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
+) {
+    var menuOpen by androidx.compose.runtime.remember { mutableStateOf(false) }
+    val payerName = expense.fields.paidBy.keys.firstOrNull()
+        ?.let { state.members[it]?.name }.orEmpty()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenExpense(expense.id) }
+            .padding(vertical = Dimens.spacingSm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(expense.fields.description, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                stringResource(R.string.expenses_paid_by, payerName) + " · " +
+                    java.time.LocalDate.ofEpochDay(expense.fields.dateEpochDay).format(
+                        java.time.format.DateTimeFormatter.ofLocalizedDate(
+                            java.time.format.FormatStyle.MEDIUM,
+                        ),
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            MoneyFormatter.format(expense.fields.total, expense.fields.currency),
+            style = MaterialTheme.typography.titleSmall,
+        )
+        IconButton(onClick = { menuOpen = true }) {
+            Icon(
+                Icons.Filled.MoreVert,
+                contentDescription = stringResource(R.string.expenses_row_actions, expense.fields.description),
+            )
+        }
+        androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(stringResource(R.string.expenses_duplicate)) },
+                onClick = {
+                    menuOpen = false
+                    onDuplicateExpense(expense.id)
+                },
+            )
+        }
     }
 }
 

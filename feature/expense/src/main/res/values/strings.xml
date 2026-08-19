@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="editor_title_new">New expense</string>
+    <string name="editor_title_edit">Edit expense</string>
+    <string name="editor_back">Back</string>
+    <string name="editor_amount_label">Amount</string>
+    <string name="editor_amount_computed">Total from items</string>
+    <string name="editor_description_label">What was it for?</string>
+    <string name="editor_note_label">Note (optional)</string>
+    <string name="editor_date_label">Date</string>
+    <string name="editor_currency_label">Currency</string>
+    <string name="editor_paid_by">Paid by</string>
+    <string name="editor_split_mode">Split</string>
+    <string name="editor_participants">Between</string>
+    <string name="editor_save">Save expense</string>
+    <string name="editor_delete">Delete expense</string>
+    <string name="editor_history">Edit history</string>
+    <string name="editor_category">Category</string>
+
+    <string name="mode_equal">Equally</string>
+    <string name="mode_exact">Amounts</string>
+    <string name="mode_percent">Percent</string>
+    <string name="mode_shares">Shares</string>
+    <string name="mode_adjustment">+/−</string>
+    <string name="mode_itemized">Items</string>
+
+    <string name="remaining_ready">All assigned</string>
+    <string name="remaining_rounding_note">%1$s +%2$s to make it add up</string>
+    <string name="remaining_left">%1$s left to assign</string>
+    <string name="remaining_over">Over by %1$s</string>
+    <string name="remaining_percent_left">%1$s%% left to assign</string>
+    <string name="remaining_percent_over">Over by %1$s%%</string>
+    <string name="issue_no_amount">Enter an amount</string>
+    <string name="issue_no_participants">Pick who shares this</string>
+    <string name="issue_all_shares_zero">Give at least one person a share</string>
+    <string name="issue_adjustments_exceed">Adjustments exceed the total</string>
+    <string name="issue_negative_share">A share went below zero</string>
+    <string name="issue_item_unassigned">Assign every item to someone</string>
+    <string name="issue_invalid_input">Check the highlighted amounts</string>
+    <string name="issue_overflow">That amount is too large</string>
+
+    <string name="itemized_add_item">Add item</string>
+    <string name="itemized_item_name">Item</string>
+    <string name="itemized_item_price">Price</string>
+    <string name="itemized_tax">Tax</string>
+    <string name="itemized_tip">Tip</string>
+    <string name="itemized_remove_item">Remove item</string>
+
+    <string name="history_title">Edit history</string>
+    <string name="history_created">Created</string>
+    <string name="history_edited">Edited</string>
+    <string name="history_deleted">Deleted</string>
+    <string name="history_restored">Restored</string>
+    <string name="history_other_device">from another device</string>
+    <string name="history_close">Close</string>
+
+    <string name="category_general">General</string>
+    <string name="category_food">Food &amp; drink</string>
+    <string name="category_groceries">Groceries</string>
+    <string name="category_transport">Transport</string>
+    <string name="category_housing">Housing</string>
+    <string name="category_utilities">Utilities</string>
+    <string name="category_entertainment">Entertainment</string>
+    <string name="category_travel">Travel</string>
+</resources>

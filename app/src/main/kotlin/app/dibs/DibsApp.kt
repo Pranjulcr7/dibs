@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -17,8 +18,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,7 +36,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import app.dibs.core.domain.settings.UserSettings
 import app.dibs.core.ui.theme.DibsTheme
-import app.dibs.feature.groups.ActivityScreen
+import app.dibs.feature.expense.editor.ExpenseEditorRoute
+import app.dibs.feature.groups.ActivityRoute
 import app.dibs.feature.groups.GroupsRoute
 import app.dibs.feature.groups.create.CreateGroupRoute
 import app.dibs.feature.groups.detail.GroupDetailRoute
@@ -72,6 +76,10 @@ private fun DibsNavHost() {
             HomeScaffold(
                 onOpenGroup = { navController.navigate("group/${it.value}") },
                 onCreateGroup = { navController.navigate("create-group") },
+                onAddExpense = { groupId -> navController.navigate("group/${groupId.value}/expense/new") },
+                onOpenExpense = { groupId, expenseId ->
+                    navController.navigate("group/${groupId.value}/expense/${expenseId.value}")
+                },
             )
         }
         composable("create-group") {
@@ -89,18 +97,35 @@ private fun DibsNavHost() {
             arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
         ) { entry ->
             val groupId = entry.arguments?.getString("groupId").orEmpty()
-            val snackbarHostState = remember { SnackbarHostState() }
-            val scope = rememberCoroutineScope()
-            val comingSoon = stringResource(R.string.coming_soon)
-            Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { padding ->
-                androidx.compose.foundation.layout.Box(Modifier.padding(padding)) {
-                    GroupDetailRoute(
-                        onBack = { navController.popBackStack() },
-                        onOpenMembers = { navController.navigate("group/$groupId/members") },
-                        onAddExpense = { scope.launch { snackbarHostState.showSnackbar(comingSoon) } },
-                    )
-                }
-            }
+            GroupDetailRoute(
+                onBack = { navController.popBackStack() },
+                onOpenMembers = { navController.navigate("group/$groupId/members") },
+                onAddExpense = { navController.navigate("group/$groupId/expense/new") },
+                onOpenExpense = { navController.navigate("group/$groupId/expense/${it.value}") },
+                onDuplicateExpense = { navController.navigate("group/$groupId/expense/new?duplicateOf=${it.value}") },
+            )
+        }
+        composable(
+            "group/{groupId}/expense/new?duplicateOf={duplicateOf}",
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("duplicateOf") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) {
+            ExpenseEditorRoute(onDone = { navController.popBackStack() })
+        }
+        composable(
+            "group/{groupId}/expense/{expenseId}",
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("expenseId") { type = NavType.StringType },
+            ),
+        ) {
+            ExpenseEditorRoute(onDone = { navController.popBackStack() })
         }
         composable(
             "group/{groupId}/members",
@@ -111,13 +136,22 @@ private fun DibsNavHost() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HomeScaffold(onOpenGroup: (app.dibs.core.domain.model.GroupId) -> Unit, onCreateGroup: () -> Unit) {
+private fun HomeScaffold(
+    onOpenGroup: (app.dibs.core.domain.model.GroupId) -> Unit,
+    onCreateGroup: () -> Unit,
+    onAddExpense: (app.dibs.core.domain.model.GroupId) -> Unit,
+    onOpenExpense: (app.dibs.core.domain.model.GroupId, app.dibs.core.domain.model.ExpenseId) -> Unit,
+    quickAdd: QuickAddViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
+) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var showGroupPicker by rememberSaveable { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val comingSoon = stringResource(R.string.coming_soon)
     val notYet: () -> Unit = { scope.launch { snackbarHostState.showSnackbar(comingSoon) } }
+    val targets by quickAdd.targets.collectAsState()
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -135,7 +169,13 @@ private fun HomeScaffold(onOpenGroup: (app.dibs.core.domain.model.GroupId) -> Un
         },
         floatingActionButton = {
             if (HomeTab.entries[selectedTab] == HomeTab.GROUPS) {
-                FloatingActionButton(onClick = notYet) {
+                FloatingActionButton(onClick = {
+                    when {
+                        targets.isEmpty() -> onCreateGroup()
+                        targets.size == 1 -> onAddExpense(targets.single().id)
+                        else -> showGroupPicker = true
+                    }
+                }) {
                     Icon(
                         Icons.Filled.Add,
                         contentDescription = stringResource(R.string.fab_add_expense),
@@ -152,8 +192,33 @@ private fun HomeScaffold(onOpenGroup: (app.dibs.core.domain.model.GroupId) -> Un
                 onImportFromSplitwise = notYet,
                 modifier = contentModifier,
             )
-            HomeTab.ACTIVITY -> ActivityScreen(modifier = contentModifier)
+            HomeTab.ACTIVITY -> ActivityRoute(
+                onOpenExpense = onOpenExpense,
+                modifier = contentModifier,
+            )
             HomeTab.SETTINGS -> SettingsScreen(modifier = contentModifier)
+        }
+    }
+
+    if (showGroupPicker) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showGroupPicker = false }) {
+            androidx.compose.foundation.layout.Column(Modifier.padding(app.dibs.core.ui.theme.Dimens.spacingMd)) {
+                Text(
+                    stringResource(R.string.quick_add_pick_group),
+                    style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+                )
+                targets.forEach { target ->
+                    androidx.compose.material3.TextButton(onClick = {
+                        showGroupPicker = false
+                        onAddExpense(target.id)
+                    }) {
+                        Text(target.label)
+                    }
+                }
+                androidx.compose.foundation.layout.Spacer(
+                    Modifier.padding(app.dibs.core.ui.theme.Dimens.spacingLg),
+                )
+            }
         }
     }
 }
