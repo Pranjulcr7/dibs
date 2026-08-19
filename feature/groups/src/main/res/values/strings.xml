@@ -124,4 +124,6 @@
     <string name="backup_banner_title">Back up your data</string>
     <string name="backup_banner_body">Everything lives only on this phone. A backup file is your safety net.</string>
     <string name="backup_banner_action">Back up</string>
+    <string name="detail_members_chip">%1$d members</string>
+    <string name="detail_add_members">Add members</string>
 </resources>

@@ -47,10 +47,23 @@ JNI): the domain needs an ordered log of financial facts, not arbitrary JSON
 merging, and ~400 lines of fully-testable Kotlin beats a native dependency. The
 `Ledger` interface hides the implementation so that choice can be revisited.
 
+## Identity without accounts
+
+There is no sign-up, so identity is a keypair: a random master key (generated on
+first run, wrapped by the Android Keystore) derives a stable Ed25519 identity
+key via HKDF, plus an uncorrelatable per-group transport key. People appear as
+`Name #a1b2` — the fingerprint suffix comes from the identity key and is the
+only verified part; display names are always self-chosen and never presented as
+verified. Membership changes (invite, claim, approve, remove) are signed ops
+validated inside the deterministic fold, so every device reaches the same
+verdict about who is in a group. The master key travels inside encrypted
+backups; restoring on a fresh device restores the identity.
+
 ## The two swappable tiers
 
-`ReceiptParser` (ML Kit rule-based parser by default, optional on-device VLM)
-and `SyncTransport` (manual file exchange first, opt-in relay later) are
+`ReceiptParser` (rule-based parser over on-device ML Kit text recognition;
+manual entry is always a first-class path, never a fallback) and
+`SyncTransport` (manual file exchange first, opt-in relay later) are
 interfaces selected at runtime. Feature modules never see a concrete
 implementation; the app must build and run with `NoOpReceiptParser` and
 `ManualFileTransport` alone.

@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -199,7 +201,7 @@ fun GroupDetailScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            DetailHeader(uiState)
+            DetailHeader(uiState, onOpenMembers)
             TabRow(selectedTabIndex = selectedTab) {
                 listOf(
                     R.string.detail_tab_expenses,
@@ -369,17 +371,18 @@ private fun ExpenseRow(
 }
 
 @Composable
-private fun DetailHeader(uiState: GroupDetailUiState) {
+private fun DetailHeader(uiState: GroupDetailUiState, onOpenMembers: () -> Unit) {
     val net = uiState.myNet
     val currency = uiState.state?.meta?.defaultCurrency
     val moneyColors = LocalMoneyColors.current
-    Row(
+    // Column, not a single Row: at 200% font the net line and the chips need
+    // to stack instead of clipping (NFR-10).
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(Dimens.spacingMd),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.fillMaxWidth()) {
             if (net != null && currency != null) {
                 when {
                     net.isPositive -> Text(
@@ -400,8 +403,35 @@ private fun DetailHeader(uiState: GroupDetailUiState) {
                 }
             }
         }
-        if (uiState.pendingCount > 0) {
-            AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_syncing)) })
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // T3: members were reachable only through an unlabeled toolbar
+            // icon. A labeled chip makes the destination visible; with only
+            // yourself in the group it becomes the "Add members" call to action.
+            val memberCount = uiState.state?.members?.values?.count { !it.removed } ?: 0
+            AssistChip(
+                onClick = onOpenMembers,
+                leadingIcon = {
+                    Icon(
+                        Icons.Filled.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(Dimens.chipIconSize),
+                    )
+                },
+                label = {
+                    Text(
+                        if (memberCount <= 1) {
+                            stringResource(R.string.detail_add_members)
+                        } else {
+                            stringResource(R.string.detail_members_chip, memberCount)
+                        },
+                    )
+                },
+                modifier = Modifier.testTag("members-chip"),
+            )
+            if (uiState.pendingCount > 0) {
+                Spacer(Modifier.width(Dimens.spacingSm))
+                AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_syncing)) })
+            }
         }
     }
 }

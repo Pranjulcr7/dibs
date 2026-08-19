@@ -19,6 +19,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   convergent across simulated devices; Room persistence with incremental
   refolds, pre-migration backups, and an SQLCipher key wrapped by the Android
   Keystore (M2).
+- Full expense UI: groups, members, all six split modes with a live
+  remaining-to-allocate bar, multi-payer entry, categories, search and filters,
+  balances with exact pairwise who-owes-whom and an opt-in simplify view,
+  settle-up with suggested transfers and write-offs, 30-day trash, archive,
+  ad-hoc one-off splits, recurring-expense reminders, biometric app lock, and
+  screenshot blocking (M3).
+- Splitwise CSV import with member mapping, preview, and duplicate-file
+  protection; re-importable CSV export; encrypted `.dibs` backup and
+  restore-as-merge (Argon2id + XChaCha20-Poly1305) with passphrase strength
+  enforcement and a 30-day backup reminder (M4).
 - Identity model (SPEC §5.9): one master key deriving a stable Ed25519
   identity (fingerprint handles like "Priya #a1b2") and uncorrelatable
   per-group transport keys; signed invite/claim/approve/remove ops validated

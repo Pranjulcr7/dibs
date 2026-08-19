@@ -5,9 +5,12 @@
 [![CI](https://github.com/dibs-app/dibs/actions/workflows/ci.yml/badge.svg)](https://github.com/dibs-app/dibs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> 🚧 **Under construction.** Dibs is being built milestone by milestone and is not
-> yet installable. Screenshots will land here the moment there is a screen worth
-> showing. See [PROGRESS.md](PROGRESS.md) for where things stand.
+> 🚧 **Pre-release.** The app is functional — groups, all six split modes,
+> balances, settle-up, Splitwise import, encrypted backup — but device-to-device
+> sync and receipt scanning are still in progress and there is no tagged release
+> yet. See [PROGRESS.md](PROGRESS.md) for where things stand.
+>
+> _Screenshots are coming with the first tagged release._
 
 ## Why Dibs
 
@@ -17,15 +20,26 @@
 - **No ads, no caps, no upsell.** Free and open source. Dibs collects nothing — see
   [PRIVACY.md](PRIVACY.md).
 
-## Features (planned for v1)
+## Features
 
-- Groups and one-off splits, with balances you can always drill into
+Working today:
+
+- Groups and one-off "just this once" splits, with balances you can always drill
+  into (who owes whom, not just nets)
 - Six split modes: equal, exact amounts, percentages, shares, +/- adjustment, and
-  itemized with proportional tax and tip
-- Multiple payers per expense, partial settlements, settle-up suggestions
-- Receipt scanning — fully on-device, with a mandatory review screen
-- Splitwise CSV import, CSV export, encrypted backups
-- Serverless sync via QR invite and encrypted bundles over any channel you already use
+  itemized with proportional tax and tip — every split sums to the total exactly
+- Multiple payers per expense, partial settlements, write-offs, settle-up
+  suggestions with an opt-in "simplify debts" view
+- Search, categories, recurring-expense reminders, 30-day trash, archive
+- Splitwise CSV import (with preview and duplicate protection) and CSV export
+- Encrypted `.dibs` backups: one passphrase-protected file you can keep anywhere
+- Biometric app lock, screenshot blocking — both opt-in
+
+Still in progress:
+
+- Receipt scanning — fully on-device, manual entry always first-class
+- Serverless sync via QR invite and encrypted bundles over any channel you
+  already use
 
 ## How it works
 
