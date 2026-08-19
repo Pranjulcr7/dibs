@@ -19,3 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   convergent across simulated devices; Room persistence with incremental
   refolds, pre-migration backups, and an SQLCipher key wrapped by the Android
   Keystore (M2).
+- Identity model (SPEC §5.9): one master key deriving a stable Ed25519
+  identity (fingerprint handles like "Priya #a1b2") and uncorrelatable
+  per-group transport keys; signed invite/claim/approve/remove ops validated
+  deterministically in the ledger fold, with golden vectors and convergence
+  race tests. Join/invite UI arrives with sync (M6).

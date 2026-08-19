@@ -1,5 +1,32 @@
 # PROGRESS
 
+## 2026-08-18 — Identity model (SPEC §5.9) landed ahead of M6
+
+Model + ops + hooks now; join/invite UI ships with M6. `./gradlew check` green.
+
+- Crypto (`:core:domain`): HKDF (RFC-vector-pinned), master-key→identity
+  keypair (Ed25519, deterministic — same master, same identity), per-group
+  transport keys, BLAKE3 handle fingerprints with deterministic 4→6 digit
+  collision extension, strict `dibs://join` link codec (edge-76 style caps).
+- Six signed ops — CreateInvite, RevokeInvite, ClaimMember, ApproveMember,
+  RemoveMember, SetJoinPolicy — validated in the fold: signatures, actor
+  authorization, invite lifecycle (revoked/expired/exhausted), single-use
+  reuse rejection, bootstrap claim, KeyAlreadyBound, RemovalBlocked. All
+  quarantine reasons typed; every decision deterministic (D25–D29).
+- Tests: crypto vectors and determinism; handle collision (hardcoded colliding
+  masters); fold validations incl. named race tests — concurrent claims on one
+  member and claim-vs-revoke, byte-identical in both merge orders; identity
+  actions added to the convergence simulation; a third golden vector freezes
+  all new encodings (M2/3b vectors untouched). Mutation-checked: signature
+  bypass and uncounted invite uses each trip multiple tests.
+- Hooks live now: master key Keystore-wrapped in `:core:data`
+  (`dibs-master.key`; must join the M4 backup payload), create-group flow
+  bootstrap-claims the self member, Members screen shows " #a1b2" fingerprints
+  monospace-muted on claimed members only — names never styled as verified.
+- Note: groups created before this change have unclaimed members (no
+  fingerprint) — correct; they become claimable via invites in M6.
+
+
 ## 2026-08-18 — M3 stage 3b complete (awaiting review)
 
 `./gradlew check` green; installed to the Galaxy S24 Ultra. Groups and members

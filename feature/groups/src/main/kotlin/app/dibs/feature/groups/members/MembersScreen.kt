@@ -175,6 +175,16 @@ private fun MemberRowItem(
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(member.name, style = MaterialTheme.typography.bodyLarge)
+                member.fingerprint?.let { digits ->
+                    Spacer(Modifier.width(Dimens.spacingXs))
+                    Text(
+                        text = "#" + digits,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (member.isSelf) {
                     Spacer(Modifier.width(Dimens.spacingSm))
                     AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_you)) })

@@ -45,6 +45,17 @@ value class GroupId(val value: String) : Comparable<GroupId> {
     override fun compareTo(other: GroupId): Int = value.compareTo(other.value)
 }
 
+/** Stable identifier of an invite; see [MemberId] for why ids are the only ordering key. */
+@Serializable
+@JvmInline
+value class InviteId(val value: String) : Comparable<InviteId> {
+    init {
+        require(value.isNotBlank()) { "InviteId must not be blank" }
+    }
+
+    override fun compareTo(other: InviteId): Int = value.compareTo(other.value)
+}
+
 /** Stable identifier of a settlement payment; see [MemberId] for why ids are the only ordering key. */
 @Serializable
 @JvmInline

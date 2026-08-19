@@ -47,6 +47,14 @@ class MembersViewModelTest {
     private suspend fun seedGroup() {
         ledger.append(groupId, OpPayload.CreateGroup("Trip", defaultCurrency = CurrencyCode("USD")))
         ledger.append(groupId, OpPayload.AddMember(self, "Priya"))
+        ledger.append(
+            groupId,
+            app.dibs.core.domain.ledger.SignedPayloads.claimMember(
+                groupId,
+                self,
+                app.dibs.core.domain.crypto.Identity.keyPairFromMaster(ByteArray(32) { 42 }),
+            ),
+        )
     }
 
     private fun membersViewModel() = MembersViewModel(
@@ -69,6 +77,10 @@ class MembersViewModelTest {
 
             val rows = state.members
             assertTrue(rows.first { it.name == "Priya" }.isSelf)
+            // Claimed members always carry their fingerprint digits (SPEC 5.9);
+            // unclaimed name records never do.
+            assertEquals(4, rows.first { it.name == "Priya" }.fingerprint?.length)
+            assertEquals(null, rows.first { it.name == "Zoe" }.fingerprint)
             assertTrue(rows.filter { it.name == "Sam" }.all { it.duplicateName })
             assertFalse(rows.first { it.name == "Priya" }.duplicateName)
             val zoe = rows.first { it.name == "Zoe" }

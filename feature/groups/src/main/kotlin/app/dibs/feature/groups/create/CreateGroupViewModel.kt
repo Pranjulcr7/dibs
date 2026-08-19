@@ -3,8 +3,10 @@ package app.dibs.feature.groups.create
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.ledger.OpPayload
+import app.dibs.core.domain.ledger.SignedPayloads
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
@@ -35,6 +37,7 @@ data class CreateGroupUiState(
 class CreateGroupViewModel @Inject constructor(
     private val ledger: Ledger,
     private val settingsStore: SettingsStore,
+    private val identitySource: IdentitySource,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateGroupUiState())
@@ -76,6 +79,9 @@ class CreateGroupViewModel @Inject constructor(
                 groupId,
                 OpPayload.AddMember(selfId, settings.displayName.trim().ifEmpty { fallbackSelfName }),
             )
+            // Bootstrap claim (SPEC §5.9): bind this device's identity key to
+            // the creator member, so the handle fingerprint shows from day one.
+            ledger.append(groupId, SignedPayloads.claimMember(groupId, selfId, identitySource.keyPair()))
             settingsStore.update { it.copy(selfMembers = it.selfMembers + (groupId to selfId)) }
             _created.emit(groupId)
         }

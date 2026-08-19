@@ -5,8 +5,10 @@ import app.dibs.core.domain.balance.Balances
 import app.dibs.core.domain.balance.Expense
 import app.dibs.core.domain.balance.MemberBalance
 import app.dibs.core.domain.balance.SettlementPayment
+import app.dibs.core.domain.crypto.IdentityKey
 import app.dibs.core.domain.model.ExpenseId
 import app.dibs.core.domain.model.GroupId
+import app.dibs.core.domain.model.InviteId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.model.SettlementId
 import app.dibs.core.domain.money.CurrencyCode
@@ -27,6 +29,14 @@ data class MemberState(
     val name: String,
     val active: Boolean,
     val nameHistory: List<NameChange>,
+    /** Set when a device claimed this member (SPEC §5.9); null = local name record. */
+    val identityKey: IdentityKey? = null,
+    /** True while awaiting ApproveMember under approval mode. */
+    val pending: Boolean = false,
+    /** RemoveMember applied; hidden everywhere, unlike deactivation. */
+    val removed: Boolean = false,
+    /** Which invite the claim came through — feeds the "joined via your invite" notice. */
+    val claimedViaInvite: InviteId? = null,
 )
 
 /** One entry in an expense's audit trail; every op that touched the expense appears (cases 20/21). */
@@ -65,7 +75,29 @@ sealed interface QuarantineReason {
     data object UnknownGroup : QuarantineReason
     data object InvalidAmounts : QuarantineReason
     data object DuplicateEntity : QuarantineReason
+
+    // Identity and joining (SPEC §5.9, edge 74).
+    data object InvalidSignature : QuarantineReason
+    data class UnauthorizedActor(val key: IdentityKey) : QuarantineReason
+    data class UnknownInvite(val inviteId: InviteId) : QuarantineReason
+    data class InviteRevoked(val inviteId: InviteId) : QuarantineReason
+    data class InviteExpired(val inviteId: InviteId) : QuarantineReason
+    data class InviteExhausted(val inviteId: InviteId) : QuarantineReason
+    data class AlreadyClaimed(val memberId: MemberId) : QuarantineReason
+    data class KeyAlreadyBound(val key: IdentityKey) : QuarantineReason
+    data class RemovalBlocked(val memberId: MemberId) : QuarantineReason
 }
+
+/** One invite's folded state (SPEC §5.9). [uses] counts applied claims, in replay order. */
+data class InviteState(
+    val id: InviteId,
+    val inviterKey: IdentityKey,
+    val inviterMemberId: MemberId?,
+    val maxUses: Int,
+    val expiresAtMillis: Long,
+    val revoked: Boolean,
+    val uses: Int,
+)
 
 /**
  * Group decoration set by [OpPayload.CreateGroup] (FR-G1). Nullable on
@@ -104,6 +136,9 @@ data class GroupState(
     val settlements: SortedMap<SettlementId, SettlementState>,
     val quarantined: List<QuarantinedOp>,
     val meta: GroupMeta? = null,
+    val invites: SortedMap<InviteId, InviteState> = TreeMap(),
+    /** Null until a SetJoinPolicy op ever ran — keeps pre-identity groups rendering unchanged. */
+    val joinApprovalRequired: Boolean? = null,
 ) {
 
     /** Expenses visible in normal lists; tombstoned ones live in [trash]. */
@@ -134,6 +169,8 @@ data class GroupState(
      * property the convergence simulation asserts, and later the basis for
      * cheap "are we in sync" comparisons.
      */
+    // One conditional block per optional state section; splitting would hide the format.
+    @Suppress("CyclomaticComplexMethod", "LongMethod")
     fun canonicalBytes(): ByteArray = buildString {
         append("state|").append(groupId.value).append('\n')
         // Emitted only when present: groups predating metadata ops (and the M2
@@ -144,6 +181,7 @@ data class GroupState(
                 .append('|').append(m.colorArgb?.toString() ?: "null")
                 .append('|').append(m.defaultCurrency.value).append('\n')
         }
+        joinApprovalRequired?.let { append("jp|").append(it).append('\n') }
         members.values.forEach { member ->
             append("m|").append(member.id.value).append('|').append(member.name.length).append(':')
                 .append(member.name).append('|').append(member.active)
@@ -152,6 +190,12 @@ data class GroupState(
                     .append(',').append(change.opId.value).append(',').append(change.deviceId.value)
                     .append(',').append(change.lamport)
             }
+            // Identity segments render only on claimed/removed members, so every
+            // pre-identity state keeps its exact historical bytes.
+            member.identityKey?.let { append("|k:").append(it.hex) }
+            member.claimedViaInvite?.let { append("|via:").append(it.value) }
+            if (member.pending) append("|pending")
+            if (member.removed) append("|removed")
             append('\n')
         }
         expenses.values.forEach { expense ->
@@ -167,6 +211,12 @@ data class GroupState(
             append("s|").append(settlement.id.value).append('|').append(settlement.from.value)
                 .append('|').append(settlement.to.value).append('|').append(settlement.amount.minorUnits)
                 .append('|').append(settlement.currency.value).append('\n')
+        }
+        invites.values.forEach { invite ->
+            append("iv|").append(invite.id.value).append('|').append(invite.inviterKey.hex)
+                .append('|').append(invite.inviterMemberId?.value ?: "null")
+                .append('|').append(invite.maxUses).append('|').append(invite.expiresAtMillis)
+                .append('|').append(invite.revoked).append('|').append(invite.uses).append('\n')
         }
         quarantined.forEach { entry ->
             append("q|").append(entry.opId.value).append('|').append(entry.reason).append('\n')

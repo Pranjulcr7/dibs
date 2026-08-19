@@ -55,6 +55,14 @@ class GoldenVectorsTest : FunSpec({
         }
     }
 
+    test("golden: given the fixed identity ledger then the folded state matches the committed constant") {
+        withClue(ENCODING_CHANGED_MESSAGE) {
+            val log = OpLog.empty().merge(GoldenFixtures.identityLedgerOps())
+            log.project(GoldenFixtures.group).canonicalBytes().toString(Charsets.UTF_8) shouldBe
+                GoldenFixtures.EXPECTED_IDENTITY_FOLD_CANONICAL_STATE
+        }
+    }
+
     test("golden: given the fixed ledger then the folded state's canonical bytes match the committed constant") {
         withClue(ENCODING_CHANGED_MESSAGE) {
             val log = OpLog.empty().merge(GoldenFixtures.ledgerOps())
@@ -169,6 +177,55 @@ object GoldenFixtures {
         add(OpPayload.EditGroup(colorArgb = ColorEdit(null), defaultCurrency = CurrencyCode("USD")))
         return ops
     }
+
+    /**
+     * Fixed chain for the SPEC §5.9 identity ops: bootstrap claim, invite,
+     * approval mode, claim-with-approval, approve, revoke, a post-revoke claim
+     * (quarantined), and a removal. Ed25519 signing is deterministic (RFC 8032),
+     * so signatures — and therefore these constants — are stable.
+     */
+    fun identityLedgerOps(): List<Op> {
+        val creator = SignedOps.keyPair(1)
+        val joiner = SignedOps.keyPair(2)
+        val late = SignedOps.keyPair(3)
+        val invite = app.dibs.core.domain.model.InviteId("11110000-0000-4000-8000-000000000001")
+        val jo = MemberId("0e000000-0000-4000-8000-000000000005")
+        val sy = MemberId("0f000000-0000-4000-8000-000000000006")
+
+        val ops = mutableListOf<Op>()
+        fun add(payload: OpPayload): Op {
+            val op = OpFactory.create(
+                groupId = group,
+                deviceId = device,
+                lamport = ops.size + 1L,
+                parents = ops.lastOrNull()?.let { setOf(it.id) } ?: emptySet(),
+                wallClockMillis = 3_000L + ops.size,
+                payload = payload,
+            )
+            ops += op
+            return op
+        }
+        add(OpPayload.AddMember(alice, "Alice"))
+        add(SignedOps.claimMember(group, alice, creator))
+        add(SignedOps.setJoinPolicy(group, requiresApproval = true, creator))
+        add(SignedOps.createInvite(group, invite, creator, maxUses = 2, expiresAtMillis = 5_000L))
+        add(SignedOps.claimMember(group, jo, joiner, displayName = "Jo", inviteId = invite))
+        add(SignedOps.approveMember(group, jo, creator))
+        add(SignedOps.revokeInvite(group, invite, creator))
+        // Post-revoke claim: must quarantine as InviteRevoked, byte-identically.
+        add(SignedOps.claimMember(group, sy, late, displayName = "Sy", inviteId = invite))
+        add(SignedOps.removeMember(group, jo, creator))
+        return ops
+    }
+
+    val EXPECTED_IDENTITY_FOLD_CANONICAL_STATE: String = listOf(
+        "state|11111111-1111-4111-8111-111111111111",
+        "jp|true",
+        "m|0a000000-0000-4000-8000-000000000001|5:Alice|true|h:5:Alice,4387b33ebc79446e9cbd36e2382025d77a4756cb74161b4ab9a656d8ca3b5b40,dddddddd-dddd-4ddd-8ddd-dddddddddddd,1|k:0cebfee033dd07bd811cc23eef015c00ce2d68cb2aebf3c7f21a88cfc798edac",
+        "m|0e000000-0000-4000-8000-000000000005|2:Jo|false|h:2:Jo,491f1563a3d4ca9b2137cfd7ccbe662e93c00d51ec73aac8a64b209e8de1f75f,dddddddd-dddd-4ddd-8ddd-dddddddddddd,5|k:09960c390dde56fbfcdfa3783aa9ca783ef4349e72c29b59157494d17c2e775d|via:11110000-0000-4000-8000-000000000001|removed",
+        "iv|11110000-0000-4000-8000-000000000001|0cebfee033dd07bd811cc23eef015c00ce2d68cb2aebf3c7f21a88cfc798edac|0a000000-0000-4000-8000-000000000001|2|5000|true|1",
+        "q|69041eb8e6f438806f76c48c3ba1f4f51ccebbd4a024557d99b2f5ea2012f246|InviteRevoked(inviteId=InviteId(value=11110000-0000-4000-8000-000000000001))",
+    ).joinToString("\n", postfix = "\n")
 
     const val EXPECTED_OP_ID = "2d2a78f69159b82496593382a25281b12f3e61da535beaccb9c7fc87a09e0a6f"
 

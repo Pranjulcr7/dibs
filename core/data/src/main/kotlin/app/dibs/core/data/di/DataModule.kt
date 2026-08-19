@@ -12,6 +12,8 @@ import app.dibs.core.data.ledger.DeviceIdProvider
 import app.dibs.core.data.ledger.LedgerRepository
 import app.dibs.core.data.settings.DataStoreSettingsStore
 import app.dibs.core.data.settings.UserSettingsSerializer
+import app.dibs.core.domain.crypto.Identity
+import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.settings.SettingsStore
 import app.dibs.core.domain.settings.UserSettings
@@ -53,6 +55,21 @@ object DataModule {
     @Provides
     @Singleton
     fun ledger(repository: LedgerRepository): Ledger = repository
+
+    // The master key behind identity + transport derivation (SPEC §5.9), wrapped
+    // by the Keystore exactly like the database passphrase. Included in backups
+    // from M4 on — restoring it restores the same identity everywhere.
+    @Provides
+    @Singleton
+    fun identitySource(@ApplicationContext context: Context): IdentitySource {
+        val store = WrappedPassphraseStore(
+            file = context.filesDir.resolve("dibs-master.key"),
+            cipher = AndroidKeystoreCipher(),
+        )
+        return object : IdentitySource {
+            override suspend fun keyPair() = Identity.keyPairFromMaster(store.getOrCreatePassphrase())
+        }
+    }
 
     @Provides
     @Singleton

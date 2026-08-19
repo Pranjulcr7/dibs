@@ -30,6 +30,54 @@ import kotlin.random.Random
  */
 class ConvergenceSimulationTest : FunSpec({
 
+    /**
+     * Random §5.9 activity: bootstrap/invited claims, invites (sometimes already
+     * expired), revocations, policy flips, approvals, removals. Invalid attempts
+     * quarantine — which is exactly what convergence must agree on.
+     */
+    fun identityAction(
+        actor: LedgerTestFixtures.SimDevice,
+        keys: app.dibs.core.domain.crypto.IdentityKeyPair,
+        random: Random,
+        knownMembers: List<MemberId>,
+    ) {
+        val state = actor.state()
+        val myClaim = state.members.values.firstOrNull { it.identityKey == keys.publicKey && !it.removed }
+        val openInvites = state.invites.values.filter { !it.revoked }
+        if (myClaim == null) {
+            val anyClaimed = state.members.values.any { it.identityKey != null && !it.removed }
+            val inviteId = if (anyClaimed) openInvites.randomOrNull(random)?.id ?: return else null
+            val unclaimed = state.members.values.filter { it.identityKey == null && !it.removed }
+            if (unclaimed.isNotEmpty() && random.nextBoolean()) {
+                actor.act(SignedOps.claimMember(group, unclaimed.random(random).id, keys, inviteId = inviteId))
+            } else {
+                val newId = MemberId(UUID(random.nextLong(), random.nextLong()).toString())
+                actor.act(SignedOps.claimMember(group, newId, keys, displayName = "joiner", inviteId = inviteId))
+            }
+            return
+        }
+        when (random.nextInt(6)) {
+            0 -> actor.act(
+                SignedOps.createInvite(
+                    group,
+                    app.dibs.core.domain.model.InviteId(UUID(random.nextLong(), random.nextLong()).toString()),
+                    keys,
+                    maxUses = random.nextInt(1, 4),
+                    expiresAtMillis = if (random.nextInt(4) == 0) 500L else 4_000_000_000L,
+                ),
+            )
+            1 -> openInvites.randomOrNull(random)?.let { actor.act(SignedOps.revokeInvite(group, it.id, keys)) }
+            2 -> actor.act(SignedOps.setJoinPolicy(group, random.nextBoolean(), keys))
+            3 -> state.members.values.filter { it.pending }.randomOrNull(random)
+                ?.let { actor.act(SignedOps.approveMember(group, it.id, keys)) }
+            4 -> knownMembers.randomOrNull(random)
+                ?.let { actor.act(SignedOps.removeMember(group, it, keys)) }
+            else -> if (knownMembers.isNotEmpty()) {
+                actor.act(OpPayload.RenameMember(knownMembers[random.nextInt(knownMembers.size)], "renamed-${random.nextInt(100)}"))
+            }
+        }
+    }
+
     fun runScenario(seed: Long): List<LedgerTestFixtures.SimDevice> {
         val random = Random(seed)
         val deviceCount = random.nextInt(2, 6)
@@ -37,6 +85,9 @@ class ConvergenceSimulationTest : FunSpec({
             LedgerTestFixtures.SimDevice(DeviceId(UUID(random.nextLong(), random.nextLong()).toString()))
         }
         val partitioned = devices[random.nextInt(deviceCount)]
+        // One deterministic identity per device: the §5.9 ops ride through the
+        // same lossy gossip as everything else.
+        val deviceKeys = devices.withIndex().associate { (index, d) -> d to SignedOps.keyPair(index + 10) }
         val members = mutableListOf<MemberId>()
         val expenses = mutableListOf<ExpenseId>()
         var nextEntity = 0
@@ -106,13 +157,12 @@ class ConvergenceSimulationTest : FunSpec({
                     val to = (knownMembers - from)[random.nextInt(knownMembers.size - 1)]
                     actor.act(LedgerTestFixtures.settle(settlementId(nextEntity++), from, to, random.nextLong(1, 5_000)))
                 }
-                else -> if (knownMembers.isNotEmpty() && random.nextBoolean()) {
-                    actor.act(OpPayload.RenameMember(knownMembers[random.nextInt(knownMembers.size)], "renamed-${random.nextInt(100)}"))
-                }
+                else -> identityAction(actor, deviceKeys.getValue(actor), random, knownMembers)
             }
         }
 
         // Rounds of local activity plus lossy, duplicating, reordering gossip.
+        // (identityAction defined below runScenario)
         val rounds = random.nextInt(10, 30)
         repeat(rounds) {
             val actor = devices[random.nextInt(deviceCount)]

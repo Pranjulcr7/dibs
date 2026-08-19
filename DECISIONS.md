@@ -191,6 +191,58 @@ does not exist in 3b — deactivation and archive (3d) are the sanctioned paths,
 mirroring members (edge 13). Member merge remains detection-only (D16) until a
 merge op exists.
 
+## M3.5 — Identity model (SPEC §5.9)
+
+### D25. One master key, two derived families
+
+A single 256-bit master key derives (a) the Ed25519 identity keypair via
+`HKDF(master, "dibs-identity-v1")` and (b) per-group transport keys via
+`HKDF(master, "dibs-transport-v1" ‖ groupId)`. Reasoning: the identity key is
+the stable human-facing handle across groups, so it must never be visible to a
+relay or two groups become linkable; transport keys are what a relay observes,
+and deriving them independently per group makes cross-group correlation
+impossible by construction. Deriving both from one master key means backup and
+recovery reduce to one secret: restore the master key, and the same identity
+and all transport keys re-emerge deterministically. HKDF is hand-rolled
+(30 lines) and pinned by RFC 5869 test vectors, because a library swap that
+changed derivation bytes would orphan every identity.
+
+### D26. Ed25519 via net.i2p.crypto:eddsa
+
+The JDK's Ed25519 arrives in Java 15 and Android 13; minSdk is 26. The eddsa
+library is small, pure Java, seed-deterministic (needed for master-key
+derivation *and* for golden vectors, since RFC 8032 signing is deterministic),
+and shares no package with the boot-classpath commons-codec (D19). Revisit at
+M6 if a stronger need (e.g. X25519 agreement) argues for a fuller library.
+
+### D27. Signatures live inside payloads, not the Op header
+
+Adding a signature field to `Op` would change the canonical encoding of every
+existing op — exactly what the golden vectors forbid. Signed ops instead carry
+key + signature as payload fields, over versioned length-prefixed messages that
+include the groupId (a signature can never be replayed into another group).
+New payload types are additive to the encoding; old vectors stand.
+
+### D28. Invite expiry compares op-embedded clocks, never a local clock
+
+The fold may only read op contents and replay-order state (invariant 6), so
+expiry checks the *claim op's* wall clock against the invite's deadline. A
+liar's clock can dodge expiry — expiry is a convenience gate; the security
+gates are the signature, the invite's existence, its revocation, and its use
+limit, all of which are deterministic and clock-free.
+
+### D29. Join-flow semantics chosen for determinism
+
+Bootstrap: a claim without an invite is valid only while the group has no
+claimed members — the creator's self-claim; races resolve by replay order.
+One key binds at most one member per group (a second claim quarantines as
+KeyAlreadyBound). Concurrent claims of one member: replay-order winner, loser
+quarantined. Claim racing a revoke: replay order decides, byte-identically in
+both merge orders. `RemoveMember` is quarantined for members with any
+financial history (edge 13) — deactivation is the path for them; approval mode
+is a group-level LWW toggle (`SetJoinPolicy`) rather than a frozen-encoding
+change to CreateGroup.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.dibs.core.domain.ledger.DuplicateMembers
+import app.dibs.core.domain.ledger.Handles
 import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.ledger.OpPayload
 import app.dibs.core.domain.model.GroupId
@@ -26,6 +27,11 @@ data class MemberRow(
     val isSelf: Boolean,
     /** Edge 12: same-name members are flagged, never merged automatically. */
     val duplicateName: Boolean,
+    /**
+     * Fingerprint digits for claimed members (SPEC §5.9) — always shown, in a
+     * muted monospace so the *name* never looks verified; only this is.
+     */
+    val fingerprint: String? = null,
 )
 
 data class MembersUiState(
@@ -46,8 +52,10 @@ class MembersViewModel @Inject constructor(
             val duplicates = DuplicateMembers.candidates(state)
                 .flatMap { listOf(it.first, it.second) }
                 .toSet()
+            val fingerprints = Handles.fingerprintsFor(state)
             MembersUiState(
                 members = state.members.values
+                    .filterNot { it.removed }
                     .map { member ->
                         MemberRow(
                             id = member.id,
@@ -55,6 +63,7 @@ class MembersViewModel @Inject constructor(
                             active = member.active,
                             isSelf = settings.selfMembers[groupId] == member.id,
                             duplicateName = member.id in duplicates,
+                            fingerprint = fingerprints[member.id],
                         )
                     }
                     .sortedWith(

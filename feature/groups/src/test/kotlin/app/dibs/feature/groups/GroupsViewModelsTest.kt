@@ -2,6 +2,8 @@
 package app.dibs.feature.groups
 
 import app.cash.turbine.test
+import app.dibs.core.domain.crypto.Identity
+import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.OpPayload
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
@@ -26,6 +28,10 @@ import org.junit.Test
 class GroupsViewModelsTest {
 
     private val dispatcher = StandardTestDispatcher()
+    private val testKeyPair = Identity.keyPairFromMaster(ByteArray(32) { 42 })
+    private val identity = object : IdentitySource {
+        override suspend fun keyPair() = testKeyPair
+    }
     private lateinit var ledger: FakeLedger
     private lateinit var settings: FakeSettingsStore
 
@@ -54,7 +60,7 @@ class GroupsViewModelsTest {
 
     @Test
     fun `given a created group with expenses then the card shows name, member count, and my net position`() = runTest(dispatcher) {
-        val create = CreateGroupViewModel(ledger, settings)
+        val create = CreateGroupViewModel(ledger, settings, identity)
         create.onNameChange("Lisbon trip")
         create.onEmojiChange("🌊")
         create.create(fallbackSelfName = "You")
@@ -95,7 +101,7 @@ class GroupsViewModelsTest {
 
     @Test
     fun `given create when the name is filled then it appends group metadata plus a self member and records the mapping`() = runTest(dispatcher) {
-        val create = CreateGroupViewModel(ledger, settings)
+        val create = CreateGroupViewModel(ledger, settings, identity)
         create.onNameChange("  Flat 4B  ")
         create.onCurrencyChange(CurrencyCode("EUR"))
         create.create(fallbackSelfName = "You")
@@ -108,12 +114,15 @@ class GroupsViewModelsTest {
         val selfId = settings.state.value.selfMembers[groupId]
         assertNotNull("self member mapping must be recorded", selfId)
         assertEquals("Priya", state.members.getValue(selfId!!).name)
+        // The create flow bootstrap-claims the self member (SPEC 5.9).
+        assertEquals(testKeyPair.publicKey, state.members.getValue(selfId).identityKey)
+        assertEquals(0, state.quarantined.size)
     }
 
     @Test
     fun `given a blank display name then the self member falls back to the provided default`() = runTest(dispatcher) {
         settings.state.value = UserSettings(displayName = "")
-        val create = CreateGroupViewModel(ledger, settings)
+        val create = CreateGroupViewModel(ledger, settings, identity)
         create.onNameChange("Trip")
         create.create(fallbackSelfName = "You")
         dispatcher.scheduler.advanceUntilIdle()
@@ -125,7 +134,7 @@ class GroupsViewModelsTest {
 
     @Test
     fun `given a blank group name then create does nothing`() = runTest(dispatcher) {
-        val create = CreateGroupViewModel(ledger, settings)
+        val create = CreateGroupViewModel(ledger, settings, identity)
         create.onNameChange("   ")
         create.create(fallbackSelfName = "You")
         dispatcher.scheduler.advanceUntilIdle()

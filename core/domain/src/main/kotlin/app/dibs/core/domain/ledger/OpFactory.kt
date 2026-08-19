@@ -223,6 +223,46 @@ object OpFactory {
                 str("restore_expense")
                 str(payload.expenseId.value)
             }
+            is OpPayload.CreateInvite -> {
+                str("create_invite")
+                str(payload.inviteId.value)
+                str(payload.inviterKey.hex)
+                num(payload.maxUses.toLong())
+                num(payload.expiresAtMillis)
+                str(payload.signature)
+            }
+            is OpPayload.RevokeInvite -> {
+                str("revoke_invite")
+                str(payload.inviteId.value)
+                str(payload.revokerKey.hex)
+                str(payload.signature)
+            }
+            is OpPayload.ClaimMember -> {
+                str("claim_member")
+                str(payload.memberId.value)
+                optStr(payload.displayName)
+                optStr(payload.inviteId?.value)
+                str(payload.claimantKey.hex)
+                str(payload.signature)
+            }
+            is OpPayload.ApproveMember -> {
+                str("approve_member")
+                str(payload.memberId.value)
+                str(payload.approverKey.hex)
+                str(payload.signature)
+            }
+            is OpPayload.RemoveMember -> {
+                str("remove_member")
+                str(payload.memberId.value)
+                str(payload.removerKey.hex)
+                str(payload.signature)
+            }
+            is OpPayload.SetJoinPolicy -> {
+                str("set_join_policy")
+                str(if (payload.requiresApproval) "1" else "0")
+                str(payload.signerKey.hex)
+                str(payload.signature)
+            }
             is OpPayload.RecordSettlement -> {
                 str("record_settlement")
                 str(payload.settlementId.value)

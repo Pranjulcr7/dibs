@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.core.domain.ledger
 
+import app.dibs.core.domain.crypto.IdentityKey
 import app.dibs.core.domain.model.ExpenseId
+import app.dibs.core.domain.model.InviteId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.model.SettlementId
 import app.dibs.core.domain.money.CurrencyCode
@@ -81,6 +83,77 @@ sealed interface OpPayload {
     @Serializable
     @SerialName("restore_expense")
     data class RestoreExpense(val expenseId: ExpenseId) : OpPayload
+
+    /**
+     * Opens the group to a joiner (SPEC §5.9). Defaults: single-use, 7-day
+     * expiry — both explicit fields so validation reads only op contents.
+     * Signed by the inviter's identity key, which must belong to a claimed
+     * active member.
+     */
+    @Serializable
+    @SerialName("create_invite")
+    data class CreateInvite(
+        val inviteId: InviteId,
+        val inviterKey: IdentityKey,
+        val maxUses: Int,
+        val expiresAtMillis: Long,
+        val signature: String,
+    ) : OpPayload
+
+    @Serializable
+    @SerialName("revoke_invite")
+    data class RevokeInvite(
+        val inviteId: InviteId,
+        val revokerKey: IdentityKey,
+        val signature: String,
+    ) : OpPayload
+
+    /**
+     * Binds an identity key to a member (SPEC §5.9): either claims an existing
+     * unclaimed member ([displayName] null) or creates a new one. [inviteId] is
+     * null only for the bootstrap claim — the group creator claiming themselves
+     * while no claimed members exist yet.
+     */
+    @Serializable
+    @SerialName("claim_member")
+    data class ClaimMember(
+        val memberId: MemberId,
+        val displayName: String? = null,
+        val inviteId: InviteId? = null,
+        val claimantKey: IdentityKey,
+        val signature: String,
+    ) : OpPayload
+
+    /** Lifts a pending joiner into full membership; only meaningful under approval mode. */
+    @Serializable
+    @SerialName("approve_member")
+    data class ApproveMember(
+        val memberId: MemberId,
+        val approverKey: IdentityKey,
+        val signature: String,
+    ) : OpPayload
+
+    /**
+     * Removes a member outright — the invite-notification escape hatch. Valid
+     * only for members with no financial history; anyone with history must be
+     * deactivated instead (edge 13), which the fold enforces.
+     */
+    @Serializable
+    @SerialName("remove_member")
+    data class RemoveMember(
+        val memberId: MemberId,
+        val removerKey: IdentityKey,
+        val signature: String,
+    ) : OpPayload
+
+    /** Per-group approval mode toggle (SPEC §5.9); LWW like other group settings. */
+    @Serializable
+    @SerialName("set_join_policy")
+    data class SetJoinPolicy(
+        val requiresApproval: Boolean,
+        val signerKey: IdentityKey,
+        val signature: String,
+    ) : OpPayload
 
     @Serializable
     @SerialName("record_settlement")

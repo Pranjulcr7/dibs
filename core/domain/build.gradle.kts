@@ -10,6 +10,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.core)
     api(libs.kotlinx.coroutines.core)
     implementation(libs.commons.codec)
+    implementation(libs.eddsa)
 }
 
 // NFR-9: >90% line coverage in the domain layer, enforced by the build.

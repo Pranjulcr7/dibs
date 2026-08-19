@@ -361,6 +361,69 @@ reachable in one tap from the review screen.
 
 ---
 
+### 5.9 Identity, handles, and joining
+
+**Key hierarchy.** Each installation holds one random 256-bit master key.
+Two families derive from it:
+
+- **Identity key** — a single Ed25519 signing keypair, stable across all
+  groups, derived deterministically as `HKDF(masterKey, "dibs-identity-v1")`.
+  Its public key's fingerprint is the human-facing handle. The identity key
+  travels only inside encrypted payloads; a relay never observes it, so a
+  user's groups cannot be correlated through their identity.
+- **Transport keys** — derived per group as
+  `HKDF(masterKey, "dibs-transport-v1" ‖ groupId)`. These are what a relay
+  observes; because each group's transport key is independent, an observer
+  cannot link two groups to the same person.
+
+The master key is wrapped by the Android Keystore at rest and included in
+encrypted backups — restoring a backup restores the same identity, and the
+derivations being deterministic means the same identity re-emerges on a new
+device from the master key alone.
+
+**Handles.** A claimed member renders as their display name plus `" #"` plus
+the first 4 hex digits of `BLAKE3(identityPublicKey)`. Name in normal weight;
+fingerprint in monospace, muted. If two members in a group collide on 4
+digits, both extend to 6, deterministically. The fingerprint is always visible
+on claimed members. The UI must never imply the *name* is verified — names are
+self-chosen and mutable; only the fingerprint binds to a key.
+
+**Invite and join flow** (ops and model in M3; UI in M6):
+
+```
+dibs://join?g=<groupId>&k=<groupKey>&i=<inviteId>&sig=<inviterSignature>
+```
+
+- Invites are single-use with a 7-day expiry by default; both configurable at
+  creation (`maxUses`, `expiresAtMillis`).
+- The joiner opens the link, sees a group preview, then either **claims an
+  existing unclaimed member** or **creates a new one**, signing `ClaimMember`
+  with their identity key.
+- Every existing member gets a "X joined via your invite" notification with a
+  remove action (fold state records which invite each claim came through).
+- Optional per-group approval mode (`SetJoinPolicy`): a joiner is `pending`
+  until an existing claimed member signs `ApproveMember`.
+
+**Ops.** `CreateInvite`, `RevokeInvite`, `ClaimMember`, `ApproveMember`,
+`RemoveMember`, `SetJoinPolicy` — all signed by the actor's identity key over
+a versioned canonical message. Validation happens in the fold, deterministically:
+
+- Invalid signatures, unauthorized actors (keys not bound to a claimed active
+  member), unknown/revoked/expired/exhausted invites, and claims of already-
+  claimed members quarantine with typed reasons — same-op-set devices always
+  agree, because every decision reads only op contents and replay-order state.
+- Invite expiry compares the *claim op's* embedded wall clock against the
+  invite's `expiresAtMillis`. Wall clocks stay display-only for ordering;
+  expiry is a soft gate (a determined attacker lies about time but still needs
+  the group key and a valid invite), and it is deterministic because it never
+  reads a local clock.
+- Reuse beyond `maxUses` is rejected at validation, counting prior applied
+  claims in replay order.
+- Bootstrap: the group creator claims their own member with a null invite,
+  which is valid only while the group has no claimed members.
+- `RemoveMember` is blocked (quarantined) for members with any expense or
+  settlement history — deactivation is the path for those (§6.2 case 13).
+
 ## 6. Edge cases and required handling
 
 Each of these needs a test. Grouped by area.

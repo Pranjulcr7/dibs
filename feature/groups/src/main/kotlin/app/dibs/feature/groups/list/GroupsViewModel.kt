@@ -74,7 +74,7 @@ class GroupsViewModel @Inject constructor(
             id = groupId,
             name = meta?.name.orEmpty(),
             emoji = meta?.emoji,
-            memberCount = members.size,
+            memberCount = members.values.count { !it.removed },
             myNet = net,
             currency = currency,
         )
