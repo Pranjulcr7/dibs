@@ -104,6 +104,23 @@ class ImportViewModelTest {
     }
 
     @Test
+    fun `given confirm tapped twice before the write finishes then only one group is created`() = runTest(dispatcher) {
+        val vm = viewModel()
+        vm.onFileLoaded(csv)
+        vm.toPreview("Once only")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.confirm()
+        // A big import takes a while and the button stays on screen — the second
+        // tap must be a no-op, not a second full import into a second group.
+        assertTrue(vm.step.value is ImportStep.Importing)
+        vm.confirm()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, ledger.observeGroupIds().first().size)
+    }
+
+    @Test
     fun `given a non-English export header then the flow reports it instead of guessing`() {
         val vm = viewModel()
         vm.onFileLoaded("Datum,Beschreibung,Kategorie,Kosten,Währung,Alice,Bob\n")

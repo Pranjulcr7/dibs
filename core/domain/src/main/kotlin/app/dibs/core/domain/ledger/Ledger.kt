@@ -27,6 +27,17 @@ interface Ledger {
     /** Creates and persists a local op with the next lamport and current heads. */
     suspend fun append(groupId: GroupId, payload: OpPayload): Op
 
+    /**
+     * Appends many ops as one batch, in order. Semantically identical to calling
+     * [append] in a loop — same lamport chaining, same fold — but implementations
+     * may (and `:core:data` does) persist the batch with a single projection
+     * write instead of one per op: rewriting the materialized state after every
+     * op makes an n-expense import cost O(n²), which turned a 5,000-row Splitwise
+     * import into minutes of writes on a real device. Bulk writers (import,
+     * restore) must use this.
+     */
+    suspend fun appendAll(groupId: GroupId, payloads: List<OpPayload>): List<Op> = payloads.map { append(groupId, it) }
+
     /** Merges remote ops; duplicates are no-ops (case 23). */
     suspend fun ingest(groupId: GroupId, ops: Collection<Op>)
 

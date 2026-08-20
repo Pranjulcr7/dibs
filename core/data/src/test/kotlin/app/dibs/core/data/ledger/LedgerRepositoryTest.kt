@@ -126,6 +126,37 @@ class LedgerRepositoryTest {
     }
 
     @Test
+    fun `given a batch appendAll then ops chain like sequential appends and the projection is written exactly once`() = runTest {
+        val payloads = buildList {
+            add(OpPayload.AddMember(alice, "Alice"))
+            add(OpPayload.AddMember(bob, "Bob"))
+            repeat(200) { add(expensePayload(ExpenseId("e$it"), (it + 1) * 100L)) }
+        }
+
+        val writesBefore = repository.diagnostics.projectionWrites
+        val ops = repository.appendAll(group, payloads)
+
+        // The whole point of the batch: one projection rewrite, not one per op (T7).
+        assertEquals(writesBefore + 1, repository.diagnostics.projectionWrites)
+        assertEquals(payloads.size, ops.size)
+        assertEquals(payloads.size.toLong(), db.opDao().countForGroup(group.value).toLong())
+        ops.zipWithNext { previous, next ->
+            assertEquals(previous.lamport + 1, next.lamport)
+            assertEquals(setOf(previous.id), next.parents)
+        }
+        assertEquals(200, repository.state(group).activeExpenses.size)
+
+        // Identical fold to a from-scratch reference over the same ops.
+        val reference = GroupLedger(group, localDevice)
+        reference.receive(ops)
+        assertArrayEquals(reference.state().canonicalBytes(), repository.state(group).canonicalBytes())
+
+        // And the persisted checkpoint round-trips.
+        val reopened = LedgerRepository(db, localDevice)
+        assertArrayEquals(repository.state(group).canonicalBytes(), reopened.state(group).canonicalBytes())
+    }
+
+    @Test
     fun `given a repository reopened over the same database then it folds the persisted ops to the same state`() = runTest {
         repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
         repository.append(

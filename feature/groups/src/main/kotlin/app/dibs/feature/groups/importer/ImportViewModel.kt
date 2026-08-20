@@ -55,6 +55,9 @@ sealed interface ImportStep {
         val groupName: String,
         val alreadyImported: Boolean,
     ) : ImportStep
+
+    /** The write is running; confirm is not re-enterable (a 5k import takes real time). */
+    data object Importing : ImportStep
 }
 
 @HiltViewModel
@@ -120,58 +123,59 @@ class ImportViewModel @Inject constructor(
     fun confirm() {
         val preview = _step.value as? ImportStep.Preview ?: return
         if (preview.alreadyImported) return
+        // Stepping to Importing before launching is the double-tap guard: a
+        // second confirm() finds no Preview and returns.
+        _step.value = ImportStep.Importing
         viewModelScope.launch {
             val groupId = GroupId(UUID.randomUUID().toString())
             val currency = preview.parsed.currencyTotalsMinor.keys.firstOrNull() ?: "USD"
-            ledger.append(
-                groupId,
-                OpPayload.CreateGroup(preview.groupName, defaultCurrency = CurrencyCode(currency)),
-            )
-            val memberIds = preview.parsed.memberNames.associateWith { original ->
-                val id = MemberId(UUID.randomUUID().toString())
-                ledger.append(groupId, OpPayload.AddMember(id, preview.names[original] ?: original))
-                id
-            }
-            preview.selfName?.let { self ->
-                val selfId = memberIds.getValue(self)
-                ledger.append(groupId, SignedPayloads.claimMember(groupId, selfId, identitySource.keyPair()))
-                settingsStore.update { it.copy(selfMembers = it.selfMembers + (groupId to selfId)) }
-            }
-            preview.parsed.rows.forEach { row ->
-                when (row) {
-                    is SplitwiseCsv.Row.Expense -> ledger.append(
-                        groupId,
-                        OpPayload.AddExpense(
-                            ExpenseId(row.stableId),
-                            ExpenseFields(
-                                description = row.description,
-                                currency = CurrencyCode(row.currency),
-                                total = Money(row.totalMinor),
-                                paidBy = row.paidByMinor.entries.associate { (name, minor) ->
-                                    memberIds.getValue(name) to Money(minor)
-                                },
-                                owedBy = row.owedByMinor.entries.associate { (name, minor) ->
-                                    memberIds.getValue(name) to Money(minor)
-                                },
-                                dateEpochDay = row.dateEpochDay,
-                                category = row.category?.lowercase(),
-                            ),
-                        ),
-                    )
-                    is SplitwiseCsv.Row.Settlement -> ledger.append(
-                        groupId,
-                        OpPayload.RecordSettlement(
-                            settlementId = SettlementId(row.stableId),
-                            from = memberIds.getValue(row.fromName),
-                            to = memberIds.getValue(row.toName),
-                            amount = Money(row.amountMinor),
-                            currency = CurrencyCode(row.currency),
-                        ),
-                    )
+            val memberIds = preview.parsed.memberNames.associateWith { MemberId(UUID.randomUUID().toString()) }
+            val selfId = preview.selfName?.let(memberIds::getValue)
+
+            // One batched append: a per-op loop rewrites the projection per op,
+            // which is O(n²) and took minutes for 5,000 rows on device (T7).
+            val payloads = buildList {
+                add(OpPayload.CreateGroup(preview.groupName, defaultCurrency = CurrencyCode(currency)))
+                preview.parsed.memberNames.forEach { original ->
+                    add(OpPayload.AddMember(memberIds.getValue(original), preview.names[original] ?: original))
                 }
+                if (selfId != null) {
+                    add(SignedPayloads.claimMember(groupId, selfId, identitySource.keyPair()))
+                }
+                preview.parsed.rows.forEach { row -> add(row.toPayload(memberIds)) }
+            }
+            ledger.appendAll(groupId, payloads)
+            if (selfId != null) {
+                settingsStore.update { it.copy(selfMembers = it.selfMembers + (groupId to selfId)) }
             }
             _done.emit(groupId)
         }
+    }
+
+    private fun SplitwiseCsv.Row.toPayload(memberIds: Map<String, MemberId>): OpPayload = when (this) {
+        is SplitwiseCsv.Row.Expense -> OpPayload.AddExpense(
+            ExpenseId(stableId),
+            ExpenseFields(
+                description = description,
+                currency = CurrencyCode(currency),
+                total = Money(totalMinor),
+                paidBy = paidByMinor.entries.associate { (name, minor) ->
+                    memberIds.getValue(name) to Money(minor)
+                },
+                owedBy = owedByMinor.entries.associate { (name, minor) ->
+                    memberIds.getValue(name) to Money(minor)
+                },
+                dateEpochDay = dateEpochDay,
+                category = category?.lowercase(),
+            ),
+        )
+        is SplitwiseCsv.Row.Settlement -> OpPayload.RecordSettlement(
+            settlementId = SettlementId(stableId),
+            from = memberIds.getValue(fromName),
+            to = memberIds.getValue(toName),
+            amount = Money(amountMinor),
+            currency = CurrencyCode(currency),
+        )
     }
 
     private suspend fun ledgerContainsExpense(stableId: String): Boolean {

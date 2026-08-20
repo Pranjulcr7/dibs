@@ -119,6 +119,7 @@
     <string name="import_checksum_warning">The file\'s own balance totals don\'t match its rows — the export may be incomplete. You can still import.</string>
     <string name="import_already_imported">This file was already imported. Importing again would duplicate everything, so it\'s blocked.</string>
     <string name="import_confirm">Import</string>
+    <string name="import_running">Importing — this can take a little while for big files.</string>
     <string name="import_back">Back</string>
     <string name="export_csv_action">Export CSV</string>
     <string name="backup_banner_title">Back up your data</string>

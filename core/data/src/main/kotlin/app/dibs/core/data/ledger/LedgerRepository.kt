@@ -47,7 +47,11 @@ class LedgerRepository(
 ) : Ledger {
 
     /** Fold-path counters, exposed for tests to prove which path ran. */
-    data class Diagnostics(val incrementalFolds: Int = 0, val fullRefolds: Int = 0)
+    data class Diagnostics(
+        val incrementalFolds: Int = 0,
+        val fullRefolds: Int = 0,
+        val projectionWrites: Int = 0,
+    )
 
     var diagnostics = Diagnostics()
         internal set
@@ -81,6 +85,32 @@ class LedgerRepository(
         )
         mergeLocked(groupId, cache, listOf(op))
         op
+    }
+
+    /**
+     * [Ledger.appendAll]: the batch shares one lock, one insert, one fold pass,
+     * and one projection write. The per-op default would rewrite the whole
+     * materialized projection after every op — O(n²) for an n-row import, which
+     * the 5,000-expense device test (AUDIT T7) measured in minutes, not ms.
+     */
+    override suspend fun appendAll(groupId: GroupId, payloads: List<OpPayload>): List<Op> = mutex.withLock {
+        val cache = loadLocked(groupId)
+        var lamport = cache.log.maxLamport
+        var heads = cache.log.heads
+        val ops = payloads.map { payload ->
+            val op = OpFactory.create(
+                groupId = groupId,
+                deviceId = deviceId,
+                lamport = ++lamport,
+                parents = heads,
+                wallClockMillis = wallClock(),
+                payload = payload,
+            )
+            heads = setOf(op.id)
+            op
+        }
+        mergeLocked(groupId, cache, ops)
+        ops
     }
 
     /** Merges remote ops; duplicates are no-ops, ops for other groups are ignored. */
@@ -174,6 +204,7 @@ class LedgerRepository(
         appliedCount: Int,
         lastAppliedOpId: String?,
     ) {
+        diagnostics = diagnostics.copy(projectionWrites = diagnostics.projectionWrites + 1)
         db.stateDao().rewriteGroupProjection(
             groupId = groupId.value,
             members = state.members.values.map {

@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -115,6 +116,15 @@ fun ImportRoute(onDone: (GroupId) -> Unit, onBack: () -> Unit, viewModel: Import
                     onBack = viewModel::backToMapping,
                     onConfirm = viewModel::confirm,
                 )
+                is ImportStep.Importing -> {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(Dimens.spacingSm),
+                    ) {
+                        CircularProgressIndicator()
+                        Text(stringResource(R.string.import_running))
+                    }
+                }
             }
         }
     }
