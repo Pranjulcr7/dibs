@@ -1,5 +1,27 @@
 # PROGRESS
 
+## 2026-08-19 — Quality pass: release build + NFR-6 measured
+
+First real release build: R8 minification + resource shrinking
+(`app/proguard-rules.pro` keeps kotlinx.serialization, SQLCipher JNI, and the
+BouncyCastle/eddsa crypto paths), ABI splits (arm64-v8a + universal), and
+packaging excludes for the BouncyCastle/Tink duplicate OSGi manifest and the
+unused `org/bouncycastle/pqc/**` resources (~1.3 MB of post-quantum data we
+never touch).
+
+- **NFR-6 (APK < 20 MB): measured 22 MB arm64-v8a, 69 MB universal**
+  (unsigned release, R8 on). **This misses the target and is recorded as a
+  deviation, not explained away.** The breakdown: 11 MB is
+  `libmlkit_google_ocr_pipeline.so` (the bundled on-device OCR model — a
+  deliberate stack choice: recognition works offline on first run with no
+  download), 5.8 MB `libsqlcipher.so`, 6.2 MB dex. A build without `:core:ocr`
+  (the planned F-Droid/FOSS flavor, where `NoOpReceiptParser` serves) would
+  come in around 11 MB and pass. Options if 20 MB becomes a hard line:
+  unbundled ML Kit (violates the no-download principle), or accepting the
+  FOSS flavor as the small build. Left as-is deliberately.
+- The R8 release build compiles and packages but has not yet run on a device;
+  release smoke test is part of the on-device pass below.
+
 ## 2026-08-18 — M5 complete (scoped: no VLM)
 
 `./gradlew check` green. Scope per SPEC §7 as revised: the VLM tier is dropped

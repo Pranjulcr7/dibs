@@ -6,6 +6,12 @@ plugins {
 }
 
 android {
+    packaging {
+        // BouncyCastle and Tink both ship this OSGi manifest; neither is read at runtime.
+        resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        // BouncyCastle post-quantum resources (~1.3 MB); Dibs uses only Argon2.
+        resources.excludes += "org/bouncycastle/pqc/**"
+    }
     namespace = "app.dibs"
 
     defaultConfig {
@@ -26,7 +32,24 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // NFR-6 (< 20 MB): R8 + resource shrinking; ML Kit and SQLCipher
+            // native code dominate what remains, so per-ABI size is the
+            // honest number (Play delivers split APKs from the bundle).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a")
+            isUniversalApk = true
         }
     }
 }
