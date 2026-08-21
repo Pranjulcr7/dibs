@@ -1,6 +1,45 @@
 # PROGRESS
 
-## 2026-08-19 — Quality pass: release build + NFR-6 measured
+## 2026-08-21 — On-device pass: T7 caught a real O(n²), NFRs measured
+
+Device: Galaxy S24 Ultra (SM-S928B), **debug build** (release numbers can only
+be better), fresh install with `pm clear`. All numbers measured, none estimated.
+Caveat stated plainly: this is a 2024 flagship, not the "mid-range 2022 device"
+NFR-1 names; the margins below are wide enough that we still call it, but a
+mid-range measurement should happen before 1.0.
+
+- **T7 (5,000-expense Splitwise import): FAILED, then fixed.** The import ran
+  for **15+ minutes** and was killed. Two defects, both invisible to the JVM
+  tests: `LedgerRepository` rewrote the entire materialized projection —
+  JSON-encoding every expense — after *every* append (O(n²) over the import),
+  and `ImportViewModel.confirm()` had no in-progress guard or progress UI, so
+  a second tap silently started a second full import. Fixed by a batched
+  `Ledger.appendAll` (one lock, one insert, one incremental fold, one
+  projection write — proven by a `projectionWrites` diagnostic in a new test)
+  plus an `Importing` step with a spinner. After the fix the same import
+  completes in **~1.5 s** end to end, landing directly in the group with
+  balances rendered.
+- **NFR-1 (cold start < 800 ms): PASS.** `am start -W` after `force-stop`,
+  5 runs: 519–635 ms, median ~540 ms — with onboarding/groups-list as the
+  first frame, on a debug build.
+- **NFR-7 (scroll, no jank on 1,000-item lists): PASS.** `gfxinfo` over
+  9 flings of the 5,000-row expense list: 386 frames, **1.3% janky**,
+  p50 8 ms / p90 18 ms / p95 20 ms / p99 32 ms.
+- **Working on device, verified by hand:** onboarding → groups; the full
+  import wizard (SAF pick, mapping with "this is me", preview counts and
+  currency totals via icu, confirm); group detail with the labeled members
+  chip (T3 fix); balances tab (nets sum to zero; simplify toggle produces
+  transfers consistent with the nets); settle tab suggestions; expense editor
+  (equal-split default, save gated on amount); scan capture screen (camera
+  permission grant → live CameraX preview with guide frame; gallery and
+  type-it-in fallbacks present per edge 33).
+- README now carries six on-device screenshots (docs/screenshots/, dark
+  theme, the 5k group).
+
+### Still blocked on the device (it disconnected mid-scan-flow)
+
+See BLOCKED.md: NFR-2/3/4 timings, the R8 release smoke test, and the
+scan-review-to-editor walk on hardware.
 
 First real release build: R8 minification + resource shrinking
 (`app/proguard-rules.pro` keeps kotlinx.serialization, SQLCipher JNI, and the

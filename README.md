@@ -9,8 +9,17 @@
 > balances, settle-up, Splitwise import, encrypted backup — but device-to-device
 > sync and receipt scanning are still in progress and there is no tagged release
 > yet. See [PROGRESS.md](PROGRESS.md) for where things stand.
->
-> _Screenshots are coming with the first tagged release._
+
+| Expenses | Balances | Settle up |
+|---|---|---|
+| ![Expense list](docs/screenshots/expenses.png) | ![Balances](docs/screenshots/balances.png) | ![Settle up](docs/screenshots/settle.png) |
+
+| New expense | Scan a receipt | First run |
+|---|---|---|
+| ![Expense editor](docs/screenshots/editor.png) | ![Receipt scan](docs/screenshots/scan.png) | ![Onboarding](docs/screenshots/onboarding.png) |
+
+<sub>Captured on a Galaxy S24 Ultra, dark theme, with a 5,000-expense group
+imported from Splitwise.</sub>
 
 ## Why Dibs
 
