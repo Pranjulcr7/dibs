@@ -102,6 +102,15 @@ involves.
 
 ---
 
+### 26. Expense editor: explain a disabled Save, and auto-focus the amount [good first issue] [ui]
+
+Two small paper cuts measured in the on-device pass (NFR-2). The Save button
+explains itself when an amount is missing or items are unassigned, but when
+only the description is blank it sits disabled with no hint — add one. And the
+amount field is not focused when the editor opens, which costs the flow an
+extra tap: FAB → amount → description → save is 4 taps against the SPEC's ≤3.
+Auto-focusing the amount (keyboard up, ready to type) gets it to 3.
+
 ## Help wanted
 
 ### 16. Translations: extract and verify string completeness [help wanted] [i18n]
@@ -124,12 +133,17 @@ to zero).
 arbitrary input. Wire a simple fuzzer (even Kotest generators over mutations of
 a valid file) and run millions of iterations. Findings would be security bugs.
 
-### 19. Benchmark and optimize cold-start fold for very large groups [help wanted] [performance]
+### 19. Rehydrate group state from the persisted projection on cold open [help wanted] [performance]
 
-NFR-3 requires folding 10k ops well under a second on mid-range hardware. We
-persist incremental projections, but the worst case (cache invalidated, full
-refold) needs a Macrobenchmark module and, if needed, fold optimizations.
-Numbers first, then changes.
+Measured on a Galaxy S24 Ultra with a 5,007-op group: the first open after
+process death folds the whole log — 861 ms DB load + JSON decode plus 361 ms
+fold on the release build (2,019 + 613 ms debug). Steady-state recomputation
+is incremental and effectively instant, but that first open misses NFR-3's
+100 ms budget. The fix is designed but not built: `LedgerRepository` already
+persists the materialized projection *and* a fold checkpoint
+(`FoldMetaEntity`), yet `loadLocked` ignores them and refolds from scratch.
+Rebuild `GroupState` from the projection tables, verify the checkpoint op id,
+and fold only the suffix. A Macrobenchmark to keep it honest would be welcome.
 
 ### 20. Screen-reader pass by a daily TalkBack user [help wanted] [accessibility]
 

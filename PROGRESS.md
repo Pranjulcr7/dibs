@@ -1,5 +1,48 @@
 # PROGRESS
 
+## 2026-08-23 — On-device pass, part 2: scan flow, NFR-2/3/4, release smoke
+
+Same device (S24 Ultra); the data from part 1 survived the reinstalls, as it
+must. All numbers measured.
+
+- **NFR-4 (ML Kit OCR pass < 1.5 s): PASS.** Gallery receipt → "Read receipt"
+  → review screen in **≤ 1.45 s end to end** (JPEG decode + OCR + layout
+  parse + compose), debug build. The parse was also *correct*: all five items
+  with exact amounts, a "2 x" quantity prefix handled, tax and printed total
+  captured, CASH/CHANGE rows ignored, and the arithmetic gate reporting
+  "Adds up".
+- **Scan → editor → save, verified on hardware.** The approved review
+  prefilled the itemized editor ($36.18, five items, per-item consumer
+  chips); assignment including a shared item worked; the one-cent absorber
+  note ("Bob +$0.01 to make it add up") appeared; saving moved the group
+  header balance by exactly the payer's net ($416.70 → $391.72). Camera
+  permission grant → live CameraX preview also verified.
+- **NFR-2 (add expense < 5 s, ≤ 3 taps): time passes, tap count is 4.**
+  The flow completes in well under 5 s, but the equal-split default needs
+  FAB → amount → description → save because the description is required and
+  the amount is not auto-focused. Recorded as a near-miss; ISSUES.md #26 has
+  the two-line fix (auto-focus + a disabled-save hint for a blank
+  description, which today gives no reason).
+- **NFR-3 (balance recomputation, 5k group, < 100 ms): split verdict.**
+  Steady-state recomputation is incremental (checkpoint + suffix fold — the
+  design the tests pin) and effectively instant. But a process-cold first
+  open of the 5,007-op group refolds everything: measured **861 ms load +
+  decode, 361 ms fold (release)**; 2,019 + 613 ms (debug). Literal NFR
+  missed on cold open; the fix (rehydrate from the already-persisted
+  projection tables and fold only the suffix) is specified in ISSUES.md #19.
+  Measurement used a temporary log in `loadLocked`, reverted, never
+  committed.
+- **R8 release build: first runtime smoke test, PASS.** The minified arm64
+  release (signed locally with the checked-in debug keystore) installed over
+  the debug build, opened the SQLCipher database, rendered the 5k group,
+  tabs, and settle suggestions, and launched the CameraX capture screen — so
+  the proguard keeps for kotlinx.serialization, SQLCipher, and the crypto
+  stack hold at runtime. One path still unexercised under R8: an actual ML
+  Kit parse (an incoming phone call interrupted it; see BLOCKED.md).
+- Session note: driving a personal daily-use phone over adb means yielding
+  to real life — a WhatsApp call and an incoming call both took the screen
+  mid-flow, and the runs resumed cleanly afterwards.
+
 ## 2026-08-21 — On-device pass: T7 caught a real O(n²), NFRs measured
 
 Device: Galaxy S24 Ultra (SM-S928B), **debug build** (release numbers can only
