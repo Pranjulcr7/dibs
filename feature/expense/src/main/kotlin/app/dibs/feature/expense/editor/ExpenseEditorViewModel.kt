@@ -149,6 +149,10 @@ data class EditorUiState(
 
     val canSave: Boolean
         get() = loaded && draft.description.isNotBlank() && draft.payer != null && preview is SplitPreview.Ready
+
+    /** True exactly when a blank description is the only thing keeping Save disabled. */
+    val blockedOnDescription: Boolean
+        get() = loaded && !canSave && draft.description.isBlank() && preview is SplitPreview.Ready
 }
 
 @HiltViewModel

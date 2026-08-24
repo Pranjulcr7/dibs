@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -85,6 +86,20 @@ class ExpenseEditorScreenTest {
         compose.onNodeWithTag("mode-exact").performClick()
         compose.onNodeWithTag("exact-${alice.value}").performScrollTo().performTextInput("3.00")
         compose.onNodeWithText("\$7.00 left to assign").assertIsDisplayed()
+    }
+
+    @Test
+    fun `given a ready split with a blank description then the hint says why save is disabled`() {
+        compose.setContent { DibsTheme { Harness() } }
+        compose.onNodeWithTag("amount").performTextInput("30")
+        compose.onNodeWithTag("save-expense").assertIsNotEnabled()
+        compose.onNodeWithTag("needs-description").assertIsDisplayed()
+    }
+
+    @Test
+    fun `given a new expense then the amount field starts focused so typing can begin at once`() {
+        compose.setContent { DibsTheme { Harness() } }
+        compose.onNodeWithTag("amount").assertIsFocused()
     }
 
     @Test

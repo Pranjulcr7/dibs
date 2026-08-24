@@ -14,6 +14,7 @@
     <string name="editor_split_mode">Split</string>
     <string name="editor_participants">Between</string>
     <string name="editor_save">Save expense</string>
+    <string name="editor_needs_description">Add a description to save it</string>
     <string name="editor_delete">Delete expense</string>
     <string name="editor_history">Edit history</string>
     <string name="editor_category">Category</string>

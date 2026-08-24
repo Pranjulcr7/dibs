@@ -37,9 +37,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -96,6 +100,22 @@ fun ExpenseEditorScreen(
     var showDatePicker by rememberSaveable { mutableStateOf(false) }
     var showHistory by rememberSaveable { mutableStateOf(false) }
 
+    // NFR-2: the fast path is type-amount-and-go, so the keyboard must already
+    // be up on a fresh expense — but never steal focus from an edit or a
+    // receipt hand-off, and never re-steal it after rotation.
+    val amountFocus = remember { FocusRequester() }
+    var autoFocused by rememberSaveable { mutableStateOf(false) }
+    val wantsAmountFocus = uiState.loaded && !uiState.isEdit &&
+        uiState.mode != SplitModeUi.ITEMIZED && draft.amountText.isEmpty()
+    LaunchedEffect(wantsAmountFocus) {
+        if (wantsAmountFocus && !autoFocused) {
+            // One frame so the field's focus node is attached before the request.
+            withFrameNanos { }
+            amountFocus.requestFocus()
+            autoFocused = true
+        }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -129,6 +149,17 @@ fun ExpenseEditorScreen(
         bottomBar = {
             Column(Modifier.padding(Dimens.spacingMd)) {
                 RemainingBar(uiState.preview, currency, uiState.members)
+                // The split being ready is not the whole story — say so when the
+                // one thing missing is a description, instead of a mute button.
+                if (uiState.blockedOnDescription) {
+                    Spacer(Modifier.height(Dimens.spacingXs))
+                    Text(
+                        stringResource(R.string.editor_needs_description),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.testTag("needs-description"),
+                    )
+                }
                 Spacer(Modifier.height(Dimens.spacingSm))
                 Button(
                     onClick = onSave,
@@ -168,6 +199,7 @@ fun ExpenseEditorScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .focusRequester(amountFocus)
                         .testTag("amount"),
                 )
             }
