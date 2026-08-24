@@ -37,8 +37,12 @@ must. All numbers measured.
   the debug build, opened the SQLCipher database, rendered the 5k group,
   tabs, and settle suggestions, and launched the CameraX capture screen — so
   the proguard keeps for kotlinx.serialization, SQLCipher, and the crypto
-  stack hold at runtime. One path still unexercised under R8: an actual ML
-  Kit parse (an incoming phone call interrupted it; see BLOCKED.md).
+  stack hold at runtime. The ML Kit parse itself was then verified under R8
+  in a follow-up run — same correct five-item review — and, because the same
+  receipt had already been saved earlier in the session, the edge-47
+  duplicate warning ("This looks identical to a receipt already in the
+  group") fired on device, minified, as designed. The phone was afterwards
+  restored to the committed debug build.
 - Session note: driving a personal daily-use phone over adb means yielding
   to real life — a WhatsApp call and an incoming call both took the screen
   mid-flow, and the runs resumed cleanly afterwards.
