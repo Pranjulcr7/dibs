@@ -1,5 +1,29 @@
 # PROGRESS
 
+## 2026-08-24 — NFR-2 and NFR-3 closed: editor taps, cold-open snapshots
+
+The two measured NFR misses from the on-device pass are now fixes, not
+footnotes. `./gradlew check` green; both re-measured on the S24 Ultra.
+
+- **NFR-2 (≤ 3 taps): MET.** A new expense opens with the amount focused and
+  the keyboard up (the SPEC §4.1 "amount first and focused" that the KDoc
+  promised but the code never did), making the equal-split default
+  FAB → type amount → tap description → save. And a ready split with a blank
+  description now says "Add a description to save it" instead of a mutely
+  disabled button. Compose tests cover both.
+- **NFR-3 (5k-group recomputation < 100 ms): MET, including cold open.**
+  New `state_snapshots` table (schema v1→v2, migration + data-preservation
+  test) stores one serialized `GroupState` per group with a row-count
+  validity gate; cold-opening the 5,007-op group measured **98–102 ms
+  (release)**, down from 1,222 ms — with the op log untouched as source of
+  truth and reads never loading it at all (see D40). The migration ran on
+  the device against the real 5k database, data intact. The lossless-codec
+  roundtrip test covers claims, invites, quarantine, trash, and rename
+  history; repository tests pin the restore path, lamport chaining after a
+  log-less restore, and the stale-snapshot fallback.
+- Remaining NFR caveat is unchanged and hardware-shaped: these numbers are
+  from a flagship; BLOCKED.md still calls for a mid-range 2022 device run.
+
 ## 2026-08-23 — On-device pass, part 2: scan flow, NFR-2/3/4, release smoke
 
 Same device (S24 Ultra); the data from part 1 survived the reinstalls, as it

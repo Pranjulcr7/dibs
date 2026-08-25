@@ -13,5 +13,28 @@ import androidx.room.migration.Migration
  * upgrade from arbitrarily old versions.
  */
 object Migrations {
-    val ALL: List<Migration> = emptyList()
+
+    /**
+     * v2: the cold-open state snapshot (ISSUES #19). Purely additive — a cache
+     * table refilled from the op log on the next open — so existing data is
+     * untouched (invariant 5).
+     */
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `state_snapshots` (" +
+                    "`groupId` TEXT NOT NULL, " +
+                    "`codecVersion` INTEGER NOT NULL, " +
+                    "`opRowCount` INTEGER NOT NULL, " +
+                    "`appliedOpCount` INTEGER NOT NULL, " +
+                    "`lastAppliedOpId` TEXT, " +
+                    "`maxLamport` INTEGER NOT NULL, " +
+                    "`headsJson` TEXT NOT NULL, " +
+                    "`stateJson` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`groupId`))",
+            )
+        }
+    }
+
+    val ALL: List<Migration> = listOf(MIGRATION_1_2)
 }

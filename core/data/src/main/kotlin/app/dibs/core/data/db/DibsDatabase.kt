@@ -15,6 +15,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         ExpenseEntity::class,
         SettlementEntity::class,
         FoldMetaEntity::class,
+        StateSnapshotEntity::class,
     ],
     version = DibsDatabase.VERSION,
     exportSchema = true,
@@ -26,7 +27,7 @@ abstract class DibsDatabase : RoomDatabase() {
     abstract fun stateDao(): StateDao
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         const val NAME = "dibs.db"
 
         /**

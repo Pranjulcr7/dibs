@@ -64,18 +64,27 @@ interface StateDao {
     @Query("DELETE FROM settlements WHERE groupId = :groupId")
     suspend fun clearSettlements(groupId: String)
 
+    @Query("SELECT * FROM state_snapshots WHERE groupId = :groupId")
+    suspend fun snapshot(groupId: String): StateSnapshotEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSnapshot(snapshot: StateSnapshotEntity)
+
     /**
      * Full rewrite of a group's projection in one transaction: the cache tables
      * are never allowed to hold a state no fold produced (edge 65's "fully
-     * applied or not at all", applied to projections).
+     * applied or not at all", applied to projections). The snapshot rides in
+     * the same transaction so it can never disagree with the row projection.
      */
     @Transaction
+    @Suppress("LongParameterList") // one atomic projection write: every table a fold produces
     suspend fun rewriteGroupProjection(
         groupId: String,
         members: List<MemberEntity>,
         expenses: List<ExpenseEntity>,
         settlements: List<SettlementEntity>,
         meta: FoldMetaEntity,
+        snapshot: StateSnapshotEntity,
     ) {
         clearMembers(groupId)
         clearExpenses(groupId)
@@ -84,5 +93,6 @@ interface StateDao {
         upsertExpenses(expenses)
         upsertSettlements(settlements)
         upsertFoldMeta(meta)
+        upsertSnapshot(snapshot)
     }
 }

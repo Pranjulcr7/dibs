@@ -70,3 +70,24 @@ data class FoldMetaEntity(
     val appliedOpCount: Int,
     val lastAppliedOpId: String?,
 )
+
+/**
+ * One serialized [app.dibs.core.domain.ledger.GroupState] per group — the
+ * cold-open snapshot (ISSUES #19). Ops are append-only, so
+ * `opRowCount == COUNT(ops for group)` proves the snapshot is current without
+ * reading a single op row; any mismatch (or codec version drift) falls back to
+ * a full refold from the ops table, which stays the only source of truth.
+ * `headsJson`/`maxLamport` let appends chain correctly before the op log has
+ * been loaded.
+ */
+@Entity(tableName = "state_snapshots")
+data class StateSnapshotEntity(
+    @PrimaryKey val groupId: String,
+    val codecVersion: Int,
+    val opRowCount: Long,
+    val appliedOpCount: Int,
+    val lastAppliedOpId: String?,
+    val maxLamport: Long,
+    val headsJson: String,
+    val stateJson: String,
+)

@@ -331,6 +331,31 @@ The stored photo's filename is BLAKE3 over the normalized parsed content
 the same paper twice produces the same fingerprint, so "already added?" is a
 prefix check over `receiptRef`, with no image hashing and no new op fields.
 
+## Quality pass — performance
+
+### D40. Cold-open state snapshots are a cache with a row-count validity gate
+
+Opening a 5,000-op group cold cost ~1.2 s on release (op-row load + JSON
+decode + full fold), against NFR-3's 100 ms. Fix: `state_snapshots` (schema
+v2) stores one serialized `GroupState` per group plus the fold checkpoint,
+heads, and max lamport. Three load-bearing choices:
+
+- **The op log stays the only source of truth.** A snapshot is validated by
+  `opRowCount == COUNT(ops)` — sound because ops are append-only, so an equal
+  count proves an identical op *set* — plus a codec version; any mismatch or
+  parse failure silently refolds. Deleting the table is always safe.
+- **Reads never load the op log.** The cache keeps `log = null` after a
+  restore; the first *write* loads it (`withLogLocked`), re-verifies the
+  checkpoint, and chains lamport/parents from the persisted heads. UI-only
+  sessions never pay the op decode at all.
+- **The codec is lossless and versioned**, proven by a roundtrip test whose
+  fixture covers every optional branch (claims, invites, quarantine, trash,
+  rename history); `GroupStateCodec.VERSION` bumps on any shape change so old
+  snapshots refold instead of misparsing.
+
+Measured on the S24 Ultra with the 5,007-op group: cold open 1,222 ms → 98–102
+ms (release), 2,632 ms → ~450 ms (debug).
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

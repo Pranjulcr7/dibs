@@ -157,6 +157,56 @@ class LedgerRepositoryTest {
     }
 
     @Test
+    fun `given a reopened repository with a fresh snapshot then state restores without touching the op rows`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        repository.append(group, OpPayload.AddMember(bob, "Bob"), 2)
+        repository.append(group, expensePayload(ExpenseId("e1"), 1000), 3)
+        val expected = repository.state(group).canonicalBytes()
+
+        val reopened = LedgerRepository(db, localDevice)
+        val restored = reopened.state(group)
+
+        assertEquals(1, reopened.diagnostics.snapshotRestores)
+        assertEquals(0, reopened.diagnostics.fullRefolds)
+        assertArrayEquals(expected, restored.canonicalBytes())
+    }
+
+    @Test
+    fun `given a snapshot-restored group then the first append loads the log and chains lamport and parents correctly`() = runTest {
+        val last = repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+            .let { repository.append(group, OpPayload.AddMember(bob, "Bob"), 2) }
+
+        val reopened = LedgerRepository(db, localDevice)
+        reopened.state(group) // snapshot restore, no log
+        assertEquals(1, reopened.diagnostics.snapshotRestores)
+        val op = reopened.append(group, expensePayload(ExpenseId("e1"), 500), 3)
+
+        assertEquals(last.lamport + 1, op.lamport)
+        assertEquals(setOf(last.id), op.parents)
+        // The appended state must equal a from-scratch domain fold of all ops.
+        val reference = GroupLedger(group, localDevice)
+        reference.receive(reopened.allOps(group))
+        assertArrayEquals(reference.state().canonicalBytes(), reopened.state(group).canonicalBytes())
+    }
+
+    @Test
+    fun `given ops written behind the snapshot's back then reopen refolds instead of trusting it`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+
+        // An op row the snapshot has never seen (e.g. a crash after insert but
+        // before the projection transaction): the row-count gate must reject.
+        val remote = GroupLedger(group, remoteDevice)
+        val extra = remote.append(OpPayload.AddMember(bob, "Bob"), 2)
+        db.opDao().insertAll(listOf(OpCodec.toEntity(extra)))
+
+        val reopened = LedgerRepository(db, localDevice)
+        val state = reopened.state(group)
+
+        assertEquals(0, reopened.diagnostics.snapshotRestores)
+        assertEquals(2, state.members.size)
+    }
+
+    @Test
     fun `given a repository reopened over the same database then it folds the persisted ops to the same state`() = runTest {
         repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
         repository.append(
