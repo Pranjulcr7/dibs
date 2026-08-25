@@ -11,8 +11,9 @@ Work that cannot proceed without an external input, per the working style
 
 ## Blocked on project decisions (not device)
 
-- **M6 (sync) and M7 (polish/release)** — explicitly out of scope until the
-  kickoff instruction changes; M6 also awaits the relay/transport decision.
-- **F-Droid FOSS flavor** (no ML Kit, `NoOpReceiptParser`) — decided as the
-  likely answer to NFR-6 (22 MB with the bundled OCR model vs the 20 MB
-  target); needs a go-ahead before adding the flavor split (ISSUES.md #23).
+- **M7 release polish** — follows M6; release signing and the reproducible
+  build (NFR-14) are its headline items.
+
+(2026-08-24: the FOSS-flavor go-ahead arrived and shipped; M6 was unblocked
+the same day — the transport decision is D41 and the milestone is in
+progress. See PROGRESS.md.)

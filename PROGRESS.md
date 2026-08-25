@@ -1,5 +1,23 @@
 # PROGRESS
 
+## 2026-08-24 — FOSS flavor: NFR-6 met at 9.7 MB
+
+The F-Droid build flavor decided and shipped (OPEN_SOURCE_SETUP §7). Two
+flavors on one dimension: `full` (ML Kit, the Play-style build) and `foss`
+(no ML Kit — `NoOpReceiptParser` bound by a flavor-local Hilt module; nothing
+else differs, same applicationId, `-foss` version suffix).
+
+- **NFR-6 (< 20 MB): MET in the foss flavor — 9.7 MB arm64 release** (26 MB
+  universal). The full flavor stays 22 MB, dominated by the 11 MB bundled
+  OCR model — recorded as the deliberate trade for offline-on-first-run
+  recognition; anyone who wants the small build has it.
+- Smoke-tested on device: the foss build runs against the same database
+  (snapshot cold-open included), and "Read receipt" degrades exactly along
+  the designed path — "Couldn't read anything useful… or type the items in"
+  with gallery and manual entry intact.
+- CI: `assembleDebug`/`check` aggregate both flavors; the release workflow
+  glob now picks up both flavors' APKs.
+
 ## 2026-08-24 — NFR-2 and NFR-3 closed: editor taps, cold-open snapshots
 
 The two measured NFR misses from the on-device pass are now fixes, not

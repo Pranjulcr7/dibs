@@ -30,6 +30,22 @@ android {
         }
     }
 
+    // OPEN_SOURCE_SETUP §7: the F-Droid build must be fully FOSS. ML Kit is the
+    // only non-FOSS dependency, so the flavors differ in exactly one thing —
+    // which ReceiptParser the DI graph binds. Same applicationId: F-Droid signs
+    // its own builds, and the two flavors are never co-installed.
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            isDefault = true
+        }
+        create("foss") {
+            dimension = "distribution"
+            versionNameSuffix = "-foss"
+        }
+    }
+
     buildTypes {
         release {
             // NFR-6 (< 20 MB): R8 + resource shrinking; ML Kit and SQLCipher
@@ -60,7 +76,9 @@ dependencies {
     // in :core:data so Hilt can bind the implementations (CLAUDE.md: ":app —
     // navigation host, DI wiring, nothing else").
     implementation(project(":core:data"))
-    implementation(project(":core:ocr"))
+    // ML Kit rides only in the Play-style flavor; foss binds NoOpReceiptParser
+    // (see app/src/foss/… FossReceiptModule) and drops ~11 MB of bundled model.
+    "fullImplementation"(project(":core:ocr"))
     implementation(project(":core:ui"))
     implementation(project(":feature:groups"))
     implementation(project(":feature:expense"))

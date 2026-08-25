@@ -157,11 +157,12 @@ photograph crumpled US/EU receipts at an angle. We need a small, freely-licensed
 corpus of receipt *photos* with line-item boxes to evaluate the parser. Photos
 must contain no personal data.
 
-### 23. F-Droid build flavor without ML Kit [help wanted] [build]
+### 23. ~~F-Droid build flavor without ML Kit~~ — resolved before filing
 
-ML Kit is a closed-source binary, which F-Droid rejects. We need a `foss`
-flavor where the scan tier is compiled out (`NoOpReceiptParser` only), a
-reproducible build, and the metadata for an F-Droid submission.
+The `foss` flavor shipped (9.7 MB arm64 release, `NoOpReceiptParser` bound by
+a flavor-local module — see PROGRESS 2026-08-24). Still open from the original
+scope, and worth its own issue when filed: the reproducible-build work
+(NFR-14) and the F-Droid submission metadata.
 
 ### 24. Wear OS / widget quick-add exploration [help wanted] [design]
 
