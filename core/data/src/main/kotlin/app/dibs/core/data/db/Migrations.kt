@@ -36,5 +36,17 @@ object Migrations {
         }
     }
 
-    val ALL: List<Migration> = listOf(MIGRATION_1_2)
+    /** v3: per-group sync keys (M6, D41). Additive; existing data untouched. */
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `group_keys` (" +
+                    "`groupId` TEXT NOT NULL, " +
+                    "`keyHex` TEXT NOT NULL, " +
+                    "PRIMARY KEY(`groupId`))",
+            )
+        }
+    }
+
+    val ALL: List<Migration> = listOf(MIGRATION_1_2, MIGRATION_2_3)
 }

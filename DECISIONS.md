@@ -356,6 +356,38 @@ heads, and max lamport. Three load-bearing choices:
 Measured on the S24 Ultra with the 5,007-op group: cold open 1,222 ms → 98–102
 ms (release), 2,632 ms → ~450 ms (debug).
 
+## M6 — Sync tier 1
+
+### D41. Manual-first transport; signed-and-sealed bundles; group keys live in the encrypted database
+
+The "relay decision" resolves the way the SPEC's tiers already lean: **v1
+ships manual sync only** (FR-Y1) — encrypted bundles through the share sheet,
+QR/`dibs://` invites — and every relay question (FR-Y2/Y3) moves wholesale to
+M8. No transport code may assume a server exists.
+
+- **`SyncTransport` stays the SPEC §5.6 shape** with `capability = MANUAL`;
+  the UI branches on capability, never on class. `ManualFileTransport.push`
+  succeeds without doing anything (sharing is an explicit user act) and
+  `pull` returns nothing (bundles arrive through the import flow); the
+  interface earns its keep the day a relay implements `BEST_EFFORT`.
+- **Bundle envelope** (`dibs-sync-v1`): a JSON header (format version, group,
+  sender device + identity key, sender vector clock, op count) is the AEAD
+  associated data for an XChaCha20-Poly1305 body keyed by the group key, and
+  an Ed25519 signature by the sender's identity key covers BLAKE3(header ‖
+  ciphertext) — AUDIT T1's "bundles are signed by the sender". Tampering
+  anywhere fails wholesale (edge 27). Each op's payload is serialized as its
+  own JSON string inside the body, so an unknown op type from a newer minor
+  version skips with a count instead of sinking the bundle (edge 28); a major
+  version mismatch is a hard, specific error.
+- **Group keys** are 256-bit `SecureRandom`, created lazily on first invite,
+  stored in a table of the SQLCipher database (whose passphrase is already
+  Keystore-wrapped — same at-rest protection as everything else), carried in
+  encrypted backups, and adopted from join links. Adopting a *different* key
+  for a group that already has one is a loud error, never a silent overwrite.
+- **The sender's vector clock rides in the header**, so a receiver can say
+  "some changes may be missing" (edge 75/FR-Y4) by comparing it against the
+  local log after ingest — no relay arbitration, no wall clocks.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

@@ -12,6 +12,7 @@ import app.dibs.core.data.key.WrappedPassphraseStore
 import app.dibs.core.data.ledger.LedgerRepository
 import app.dibs.core.data.settings.DataStoreSettingsStore
 import app.dibs.core.data.settings.UserSettingsSerializer
+import app.dibs.core.data.sync.DefaultGroupKeyStore
 import app.dibs.core.domain.ledger.BackupService
 import app.dibs.core.domain.ledger.DeviceId
 import app.dibs.core.domain.ledger.ExpenseFields
@@ -60,7 +61,14 @@ class BackupServiceTest {
     private val scopes = mutableListOf<CoroutineScope>()
     private val databases = mutableListOf<DibsDatabase>()
 
-    private fun environment(tag: String): Triple<LedgerRepository, DataStoreSettingsStore, DefaultBackupService> {
+    data class Env(
+        val repo: LedgerRepository,
+        val store: DataStoreSettingsStore,
+        val service: DefaultBackupService,
+        val keys: DefaultGroupKeyStore,
+    )
+
+    private fun environment(tag: String): Env {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, DibsDatabase::class.java)
             .allowMainThreadQueries().build().also(databases::add)
@@ -74,7 +82,8 @@ class BackupServiceTest {
             ) { File(tmp.root, "settings-$tag.json") },
         )
         val masterKey = WrappedPassphraseStore(File(tmp.root, "master-$tag.key"), xorCipher)
-        return Triple(repo, store, DefaultBackupService(repo, store, masterKey))
+        val keys = DefaultGroupKeyStore(db)
+        return Env(repo, store, DefaultBackupService(repo, store, masterKey, keys), keys)
     }
 
     @Before
@@ -149,6 +158,27 @@ class BackupServiceTest {
         targetService.restoreBackup(bytes, "pw".toCharArray())
 
         assertEquals(2, targetRepo.state(group).members.size)
+    }
+
+    @Test
+    fun `given group sync keys then backup carries them and restore adopts only where absent`() = runTest {
+        val source = environment("a")
+        source.repo.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        val sourceKey = source.keys.getOrCreate(group)
+        val otherGroup = GroupId("22222222-0000-4000-8000-000000000000")
+        source.repo.append(otherGroup, OpPayload.AddMember(bob, "Bob"), 1)
+        val otherKey = source.keys.getOrCreate(otherGroup)
+        val bytes = source.service.createBackup("pw".toCharArray())
+
+        // Target already holds its own key for `group`: that one must survive;
+        // the key for `otherGroup` is absent and must be adopted.
+        val target = environment("b")
+        val local = target.keys.getOrCreate(group)
+        target.service.restoreBackup(bytes, "pw".toCharArray())
+
+        assertArrayEquals(local, target.keys.keyFor(group))
+        assertArrayEquals(otherKey, target.keys.keyFor(otherGroup))
+        assertTrue(!sourceKey.contentEquals(local))
     }
 
     @Test

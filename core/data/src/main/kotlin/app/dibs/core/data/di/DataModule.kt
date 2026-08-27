@@ -80,12 +80,18 @@ object DataModule {
 
     @Provides
     @Singleton
+    fun groupKeyStore(db: DibsDatabase): app.dibs.core.domain.sync.GroupKeyStore =
+        app.dibs.core.data.sync.DefaultGroupKeyStore(db)
+
+    @Provides
+    @Singleton
     fun backupService(
         repository: LedgerRepository,
         settingsStore: SettingsStore,
         @MasterKey masterKeyStore: WrappedPassphraseStore,
+        groupKeyStore: app.dibs.core.domain.sync.GroupKeyStore,
     ): app.dibs.core.domain.ledger.BackupService =
-        app.dibs.core.data.backup.DefaultBackupService(repository, settingsStore, masterKeyStore)
+        app.dibs.core.data.backup.DefaultBackupService(repository, settingsStore, masterKeyStore, groupKeyStore)
 
     @Provides
     @Singleton

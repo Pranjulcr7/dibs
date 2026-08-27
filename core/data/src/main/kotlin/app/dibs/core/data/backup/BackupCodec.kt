@@ -18,6 +18,8 @@ data class BackupPayload(
     val masterKeyHex: String,
     val settingsJson: String,
     val groups: List<BackupGroup>,
+    /** Per-group sync keys (M6) — additive with a default, so v1 backups still read. */
+    val groupKeysHex: Map<String, String> = emptyMap(),
 )
 
 @Serializable

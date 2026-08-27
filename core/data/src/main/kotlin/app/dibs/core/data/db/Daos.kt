@@ -96,3 +96,17 @@ interface StateDao {
         upsertSnapshot(snapshot)
     }
 }
+
+@Dao
+interface GroupKeyDao {
+
+    @Query("SELECT * FROM group_keys WHERE groupId = :groupId")
+    suspend fun keyFor(groupId: String): GroupKeyEntity?
+
+    /** IGNORE: a key, once written, is never replaced (GroupKeyStore.adopt refuses conflicts). */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(key: GroupKeyEntity): Long
+
+    @Query("SELECT * FROM group_keys")
+    suspend fun all(): List<GroupKeyEntity>
+}

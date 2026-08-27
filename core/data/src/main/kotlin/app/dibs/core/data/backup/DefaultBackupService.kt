@@ -10,6 +10,7 @@ import app.dibs.core.domain.ledger.BackupService
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.settings.SettingsStore
 import app.dibs.core.domain.settings.UserSettings
+import app.dibs.core.domain.sync.GroupKeyStore
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 
@@ -24,6 +25,7 @@ class DefaultBackupService(
     private val repository: LedgerRepository,
     private val settingsStore: SettingsStore,
     private val masterKeyStore: WrappedPassphraseStore,
+    private val groupKeyStore: GroupKeyStore,
     private val wallClock: () -> Long = System::currentTimeMillis,
 ) : BackupService {
 
@@ -53,6 +55,9 @@ class DefaultBackupService(
             masterKeyHex = HexBytes.toHex(masterKeyStore.getOrCreatePassphrase()),
             settingsJson = json.encodeToString(settings),
             groups = groups,
+            groupKeysHex = groupKeyStore.all().entries
+                .sortedBy { it.key.value }
+                .associate { it.key.value to HexBytes.toHex(it.value) },
         )
         val encrypted = BackupCodec.encrypt(payload, passphrase)
         val opCount = groups.sumOf { it.ops.size.toLong() }
@@ -65,6 +70,15 @@ class DefaultBackupService(
             ?: return BackupService.RestoreResult.WrongPassphraseOrCorrupt
 
         val identityAdopted = masterKeyStore.adoptIfAbsent(HexBytes.fromHex(payload.masterKeyHex))
+
+        // Group keys adopt-if-absent, mirroring the identity rule: a live key is
+        // never overwritten by a backup — restore is additive, local wins.
+        payload.groupKeysHex.forEach { (groupId, keyHex) ->
+            val id = GroupId(groupId)
+            if (groupKeyStore.keyFor(id) == null) {
+                groupKeyStore.adopt(id, HexBytes.fromHex(keyHex))
+            }
+        }
 
         var opsAdded = 0
         payload.groups.forEach { group ->

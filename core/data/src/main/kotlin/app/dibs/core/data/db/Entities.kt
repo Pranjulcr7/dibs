@@ -91,3 +91,14 @@ data class StateSnapshotEntity(
     val headsJson: String,
     val stateJson: String,
 )
+
+/**
+ * One 256-bit sync key per group (SPEC §5.7, D41). The table lives inside the
+ * SQLCipher database, whose passphrase is Keystore-wrapped — the same at-rest
+ * protection as the op log the key seals. Carried in encrypted backups.
+ */
+@Entity(tableName = "group_keys")
+data class GroupKeyEntity(
+    @PrimaryKey val groupId: String,
+    val keyHex: String,
+)
