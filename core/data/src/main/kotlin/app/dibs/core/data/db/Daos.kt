@@ -110,3 +110,13 @@ interface GroupKeyDao {
     @Query("SELECT * FROM group_keys")
     suspend fun all(): List<GroupKeyEntity>
 }
+
+@Dao
+interface SyncMetaDao {
+
+    @Query("SELECT * FROM sync_meta WHERE groupId = :groupId")
+    suspend fun metaFor(groupId: String): SyncMetaEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(meta: SyncMetaEntity)
+}

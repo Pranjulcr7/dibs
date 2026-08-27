@@ -41,6 +41,14 @@ interface Ledger {
     /** Merges remote ops; duplicates are no-ops (case 23). */
     suspend fun ingest(groupId: GroupId, ops: Collection<Op>)
 
+    /**
+     * Every op known for the group, applied and pending alike. This is the
+     * ledger's exchange surface: sync bundles and backups ship ops, not folded
+     * state, because ops are the source of truth (SPEC §5.5) and set-union
+     * over them is what makes replication idempotent.
+     */
+    suspend fun allOps(groupId: GroupId): List<Op>
+
     /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
     suspend fun pendingCount(groupId: GroupId): Int
 

@@ -17,6 +17,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
         FoldMetaEntity::class,
         StateSnapshotEntity::class,
         GroupKeyEntity::class,
+        SyncMetaEntity::class,
     ],
     version = DibsDatabase.VERSION,
     exportSchema = true,
@@ -29,8 +30,10 @@ abstract class DibsDatabase : RoomDatabase() {
 
     abstract fun groupKeyDao(): GroupKeyDao
 
+    abstract fun syncMetaDao(): SyncMetaDao
+
     companion object {
-        const val VERSION = 3
+        const val VERSION = 4
         const val NAME = "dibs.db"
 
         /**

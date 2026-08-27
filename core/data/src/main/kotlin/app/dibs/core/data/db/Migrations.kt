@@ -48,5 +48,19 @@ object Migrations {
         }
     }
 
-    val ALL: List<Migration> = listOf(MIGRATION_1_2, MIGRATION_2_3)
+    /** v4: per-group sync-share memory for the FR-Y4 chips. Additive. */
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `sync_meta` (" +
+                    "`groupId` TEXT NOT NULL, " +
+                    "`sharedOpCount` INTEGER NOT NULL, " +
+                    "`lastSharedAtMillis` INTEGER, " +
+                    "`lastImportAtMillis` INTEGER, " +
+                    "PRIMARY KEY(`groupId`))",
+            )
+        }
+    }
+
+    val ALL: List<Migration> = listOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }

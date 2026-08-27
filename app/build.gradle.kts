@@ -79,6 +79,7 @@ dependencies {
     // ML Kit rides only in the Play-style flavor; foss binds NoOpReceiptParser
     // (see app/src/foss/… FossReceiptModule) and drops ~11 MB of bundled model.
     "fullImplementation"(project(":core:ocr"))
+    implementation(project(":core:sync"))
     implementation(project(":core:ui"))
     implementation(project(":feature:groups"))
     implementation(project(":feature:expense"))

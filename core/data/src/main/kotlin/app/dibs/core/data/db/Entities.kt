@@ -102,3 +102,12 @@ data class GroupKeyEntity(
     @PrimaryKey val groupId: String,
     val keyHex: String,
 )
+
+/** This device's sharing memory per group (FR-Y4); counts, not clocks, define "changed". */
+@Entity(tableName = "sync_meta")
+data class SyncMetaEntity(
+    @PrimaryKey val groupId: String,
+    val sharedOpCount: Long,
+    val lastSharedAtMillis: Long?,
+    val lastImportAtMillis: Long?,
+)

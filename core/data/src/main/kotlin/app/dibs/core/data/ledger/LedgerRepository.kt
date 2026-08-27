@@ -139,8 +139,7 @@ class LedgerRepository(
 
     override suspend fun totalOpCount(): Long = db.opDao().countAll()
 
-    /** Every op known for the group (for sync and for reference folds in tests). */
-    suspend fun allOps(groupId: GroupId): List<Op> = mutex.withLock {
+    override suspend fun allOps(groupId: GroupId): List<Op> = mutex.withLock {
         checkNotNull(withLogLocked(groupId).log).all.toList()
     }
 

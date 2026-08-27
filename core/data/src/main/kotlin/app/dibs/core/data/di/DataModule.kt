@@ -31,6 +31,7 @@ annotation class MasterKey
 
 @Module
 @InstallIn(SingletonComponent::class)
+@Suppress("TooManyFunctions") // one @Provides per bound seam; a composition root grows with the app
 object DataModule {
 
     @Provides
@@ -82,6 +83,11 @@ object DataModule {
     @Singleton
     fun groupKeyStore(db: DibsDatabase): app.dibs.core.domain.sync.GroupKeyStore =
         app.dibs.core.data.sync.DefaultGroupKeyStore(db)
+
+    @Provides
+    @Singleton
+    fun syncMetaStore(db: DibsDatabase): app.dibs.core.domain.sync.SyncMetaStore =
+        app.dibs.core.data.sync.DefaultSyncMetaStore(db)
 
     @Provides
     @Singleton

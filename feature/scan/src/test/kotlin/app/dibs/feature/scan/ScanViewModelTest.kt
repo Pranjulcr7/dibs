@@ -66,6 +66,8 @@ class ScanViewModelTest {
         override suspend fun pendingCount(groupId: GroupId): Int = 0
 
         override suspend fun totalOpCount(): Long = ledgers.values.sumOf { it.log.all.size.toLong() }
+
+        override suspend fun allOps(groupId: GroupId): List<Op> = ledgerFor(groupId).log.all.toList()
     }
 
     private class FakeParser(var result: ReceiptParser.Result) : ReceiptParser {
