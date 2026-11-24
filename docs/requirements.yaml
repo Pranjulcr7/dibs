@@ -7,6 +7,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given the create screen then create stays disabled until a name is typed
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/GroupMetaProjectorTest.kt :: given a CreateGroup op when folded then the group metadata is available
   note: "No colour picker in the UI; the op payload supports colour."
+
 - id: FR-G2
   title: Add members by name only, as local records until claimed by a device
   status: covered
@@ -16,6 +17,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/HandlesAndLinkTest.kt :: given unclaimed members then they get no fingerprint at all
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/IdentityOpsTest.kt :: given a valid invite when a joiner claims an existing unclaimed member
   note: ""
+
 - id: FR-G3
   title: Edit and remove members, with removal blocked by history and deactivate offered instead
   status: partial
@@ -24,7 +26,9 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/IdentityOpsTest.kt :: given a member with expense history when removal is attempted then it is blocked
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/GroupMetaProjectorTest.kt :: given a deactivated member when reactivated then the member is active again
-  note: "Rename, deactivate, reactivate and remove are tested at ViewModel level. Hiding deactivated members from new-expense pickers is implemented, untested; the Remove menu item has no Compose test."
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given a manager then approval, open invites, pending and joined-via-invite members show their controls
+  note: "Rename, deactivate, reactivate and remove are tested at ViewModel level and on two emulators (scripts/e2e F03, F25). Hiding deactivated members from new-expense pickers is implemented, untested."
+
 - id: FR-G4
   title: Archive a group, and delete a group with typed confirmation and a pre-delete backup
   status: partial
@@ -32,11 +36,13 @@
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/GroupStateCodecTest.kt :: given a state exercising every branch then the codec roundtrips it losslessly
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/GoldenVectorsTest.kt :: given the fixed 3b ledger with group metadata then the folded state matches
   note: "SetArchived is pinned only by the golden vector and the codec roundtrip; archive and unarchive UI and the Archived list section are implemented, untested. Delete group with typed confirmation and pre-delete backup does not exist."
+
 - id: FR-G5
   title: One-off split with no group creates a hidden ad-hoc group
   status: open
   tests: []
   note: "Implemented (QuickAddViewModel.createAdHocGroup, ad-hoc filter in GroupsViewModel), untested."
+
 - id: FR-G6
   title: Group list shows the current user's net position per group
   status: covered
@@ -44,6 +50,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given a created group with expenses then the card shows name, member count, and my net position
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given groups then cards show name, member count, and color-coded position
   note: ""
+
 - id: FR-E1
   title: Record an expense with amount, currency, description, date, payer, split, category, note, receipt
   status: covered
@@ -52,6 +59,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a receipt handoff saved after assignment then the expense carries the receipt reference
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given members and an expense when folded then balances follow from the expense
   note: "Note and date are not asserted by an editor test."
+
 - id: FR-E2
   title: Six split modes - equal, exact, percentage, shares, adjustment, itemized
   status: covered
@@ -61,13 +69,17 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given exact amounts under the total then the remaining indicator equals
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given exact mode with a partial assignment then the bar shows the domain remaining
   note: "Shares and adjustment modes are tested in the domain only, not through the editor."
+
 - id: FR-E3
   title: Multiple payers on one expense
-  status: partial
+  status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given multiple payers on one expense when netted then each payer is credited
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/PairwiseBalancesTest.kt :: given 2000 random multi-payer ledgers then every member's pairwise net equals
-  note: "Domain and fold support several payers; the editor writes a single payer only (no multi-payer entry UI), although PROGRESS.md 2026-08-18 lists multi-payer entry as shipped."
+    - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given several payers entered then the saved expense records each payment and they sum to the total
+    - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an expense with two payers when only the description is edited then who paid what is untouched
+  note: "The several-payers control in the editor has no Compose test; its logic is tested through the ViewModel and the pure payersFor derivation."
+
 - id: FR-E4
   title: Edit any expense with full edit history retained and viewable
   status: partial
@@ -76,6 +88,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given an edit changing the money block then currency, total, payers, and split move as one atomic field
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given concurrent edits then the history lists both ops with their device ids
   note: "History retention is tested; the edit-history bottom sheet is implemented, untested."
+
 - id: FR-E5
   title: Delete an expense as a tombstone recoverable from a 30-day trash
   status: covered
@@ -84,12 +97,14 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion then trash shows the days remaining and restore brings the expense back
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion older than 30 days then the trash no longer offers it
   note: ""
+
 - id: FR-E6
   title: Duplicate an expense
   status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given duplicateOf then the editor prefills from the source but saves a brand-new expense
   note: ""
+
 - id: FR-E7
   title: Recurring expenses with a local notification prompting confirmation, never auto-created
   status: partial
@@ -98,6 +113,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/settings/RecurringRulesTest.kt :: given a fired rule then it advances past today
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a repeat choice when saved then a device-local recurring rule is created
   note: "RecurringWorker, the notification and the prefilled-editor route are implemented, untested; never-auto-create is not asserted by any test."
+
 - id: FR-E8
   title: Attach a receipt photo stored in app-private storage and never uploaded
   status: partial
@@ -105,12 +121,14 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a receipt handoff saved after assignment then the expense carries the receipt reference
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given the approved review then the handoff carries the edited items and the stored image name
   note: "The receipt reference on the expense is tested; writing the photo to app-private storage (ScanScreen) is untested, and a photo can only be attached through the scan flow."
+
 - id: FR-E9
   title: Search and filter expenses by text, member, category, date range, amount
   status: partial
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given text, member, and category filters then only matching expenses remain
   note: "Date-range and amount filters do not exist (see the ExpenseFilter KDoc)."
+
 - id: FR-S1
   title: Show raw pairwise balances
   status: covered
@@ -119,6 +137,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/PairwiseBalancesTest.kt :: given opposing debts across expenses then the pair nets to a single direction
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the balances tab then pairwise debts show and the simplify toggle
   note: ""
+
 - id: FR-S2
   title: Simplified settlement as an opt-in toggle, default off, with a one-line explanation
   status: covered
@@ -127,6 +146,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/settle/SettlementTest.kt :: given a chain of debts when simplified then transfers never exceed member count
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the balances tab then pairwise debts show and the simplify toggle swaps the view with its explanation
   note: "Default-off is implied by the Compose test (the pairwise view shows before the toggle is tapped), not asserted separately."
+
 - id: FR-S3
   title: Record a settlement payment as its own transaction type
   status: covered
@@ -135,6 +155,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given a settlement between known members then it reduces the pair's net balances
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the settle tab then the suggested transfer is listed with a record button
   note: "The record-payment dialog itself is not exercised (dialogs do not idle under Robolectric)."
+
 - id: FR-S4
   title: Partial settlements
   status: covered
@@ -142,21 +163,25 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given a partial then full settlement when netted then the pair ends settled up
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a recorded partial settlement then balances shrink
   note: ""
+
 - id: FR-S5
   title: Per-member detail with total paid, total owed, net, and the expenses behind each
   status: open
   tests: []
   note: "Feature does not exist (no member detail screen)."
+
 - id: FR-S6
   title: Remind produces a shareable plain-text summary through the share sheet
   status: open
   tests: []
   note: "Feature does not exist (no remind or share-summary action)."
+
 - id: FR-R1
   title: Capture a receipt via CameraX with guide frame and stability hint, or pick from the gallery
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-21 (camera permission grant, live CameraX preview with guide frame) and 2026-08-23 (gallery receipt read on device). The hint is static text; no automated test."
+
 - id: FR-R2
   title: Parse a receipt to line items with quantity, unit price, line total, subtotal, tax, tip, total
   status: partial
@@ -166,6 +191,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given multiple tax lines then they accumulate
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given recognized text then the parsed draft comes back with the gate verdict
   note: "Name, quantity, line total and the summary rows are tested; the receipt item model has no unit price field."
+
 - id: FR-R3
   title: Mandatory review screen before any parsed receipt is committed
   status: covered
@@ -174,6 +200,7 @@
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given the approved review then the handoff carries the edited items
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a reviewed receipt handoff then the editor opens itemized with items, tax, tip
   note: ""
+
 - id: FR-R4
   title: Low-confidence or arithmetic-failing fields are visually flagged and focused first
   status: partial
@@ -182,6 +209,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given an unclassifiable price row after the summary then it is flagged, not guessed
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given a review edit fixing a bad amount then the arithmetic gate re-runs and passes
   note: "Draft-level flags and the arithmetic gate are tested; per-field confidence does not exist, and visual flagging or focus-first on the review screen is untested."
+
 - id: FR-R5
   title: Assign line items to people, including one item shared across several people
   status: covered
@@ -190,6 +218,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an itemized draft then the total is computed from items plus tax and tip
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an itemized item with nobody assigned then the preview says so
   note: "The consumer chips are not exercised in Compose; the draft model and split maths are."
+
 - id: FR-R6
   title: Tax and tip distributed proportionally by default, with manual override and equal split of tax
   status: partial
@@ -197,6 +226,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/ItemizedSplitTest.kt :: given items with tax and tip when split then tax and tip are prorated by each member's item subtotal
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/ItemizedSplitTest.kt :: given a zero item subtotal with nonzero tip when split then tip is divided equally
   note: "Proportional default is tested; equal-split-of-tax does not exist and there is no per-person override of the tax or tip distribution."
+
 - id: FR-R7
   title: Multi-frame capture for long receipts with overlap de-duplication
   status: covered
@@ -205,6 +235,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given the summary was readable only on the last frame then merge takes it from there
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given multiple frames then their drafts merge with boundary dedupe
   note: "The multi-frame capture UI has no test and no recorded on-device run."
+
 - id: FR-R8
   title: Fully manual line-item entry as a first-class path
   status: covered
@@ -212,6 +243,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given itemized mode then the amount field is replaced by the computed total
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an itemized draft then the total is computed from items plus tax and tip
   note: ""
+
 - id: FR-I1
   title: Splitwise CSV import with member mapping, payer reconstruction, preview, and idempotent re-import
   status: covered
@@ -221,6 +253,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a parsed file when mapped and confirmed then the new group folds to the imported ledger
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a file whose rows already exist then preview flags it and confirm refuses to duplicate
   note: "D34 - import always creates a new group, so mapping onto existing members is not offered."
+
 - id: FR-I2
   title: CSV export of any group
   status: covered
@@ -228,6 +261,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/CsvExportTest.kt :: given a group with expenses and a settlement then the export re-imports with identical nets
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/CsvExportTest.kt :: given a zero-decimal currency then export renders whole units the parser reads back exactly
   note: "The Export CSV menu action and SAF write are untested."
+
 - id: FR-I3
   title: Full encrypted backup of the op-log and identity as one .dibs file written via SAF
   status: covered
@@ -237,6 +271,7 @@
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given group sync keys then backup carries them and restore adopts only where absent
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given a strong passphrase then the encrypted bytes land in the chosen stream
   note: ""
+
 - id: FR-I4
   title: Restore a backup on a new device, merging into existing data
   status: covered
@@ -245,11 +280,13 @@
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given a device with existing data then restore merges instead of replacing
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given the same backup restored twice then the second restore adds nothing
   note: ""
+
 - id: FR-I5
   title: Backup reminder when the last backup is older than 30 days and the ledger changed
   status: open
   tests: []
   note: "Implemented (GroupsViewModel.backupNudge and the banner card), untested."
+
 - id: FR-Y1
   title: Manual sync tier - join by QR or dibs link, share updates as an encrypted bundle
   status: partial
@@ -259,16 +296,19 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a bare link then the joiner is asked for updates, and the updates complete the join
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a member's bundle then the joiner folds to byte-identical state
   note: "Invite, join and bundle share/import are tested at ViewModel level with two in-memory phones. The join screen is not reachable from app navigation (no route; MainActivity does not read the dibs://join intent). QR decoding is unit-tested (QrDecoderTest) but the QR scan screen is not wired to the join screen or navigation."
+
 - id: FR-Y2
   title: Relay sync tier, opt-in per group with public relays
   status: open
   tests: []
   note: "Feature does not exist; relay sync is deferred by D41 (ROADMAP P9)."
+
 - id: FR-Y3
   title: Bring-your-own relay URL in settings
   status: open
   tests: []
   note: "Feature does not exist; relay sync is deferred by D41 (ROADMAP P9)."
+
 - id: FR-Y4
   title: Visible per-group sync state, never a silent failure
   status: covered
@@ -278,11 +318,13 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SyncSharingTest.kt :: given every import outcome then each has its own non-empty message
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a member's bundle then the joiner folds to byte-identical state and both chips settle
   note: ""
+
 - id: FR-Y5
   title: Nothing about sync may block expense entry
   status: open
   tests: []
   note: "No test asserts it. Holds by construction today because tier 1 sync is a manual file hand-off with no background work."
+
 - id: FR-T1
   title: Theme, dynamic colour, and language settings
   status: partial
@@ -291,6 +333,7 @@
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given an update when the store is reopened then the settings survive
     - app/src/test/kotlin/app/dibs/MainViewModelTest.kt :: given settings not yet loaded then the state starts as Loading and resolves to Ready
   note: "Theme and dynamic colour are tested; a language setting does not exist."
+
 - id: FR-T2
   title: Default currency, default split mode, and default group settings
   status: partial
@@ -298,32 +341,38 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given a fresh install when settings are read then the defaults apply
   note: "Default currency is tested; default split mode and default group settings do not exist."
+
 - id: FR-T3
   title: App lock with biometric or device credential
   status: partial
   tests:
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
   note: "Only the toggle persistence is tested; the BiometricPrompt gate (MainViewModel.shouldPromptUnlock, MainActivity) is untested and PROGRESS.md records no on-device check."
+
 - id: FR-T4
   title: Manage the receipt-parser tier including the optional VLM download
   status: superseded
   tests: []
   note: "VLM tier dropped with no D number; recorded in SPEC section 7 (status 2026-08-18) and PROGRESS.md 2026-08-18 (M5 complete, scoped, no VLM)."
+
 - id: FR-T5
   title: Storage usage breakdown and a clear-receipt-images action
   status: open
   tests: []
   note: "Feature does not exist (deferred in PROGRESS.md 2026-08-18)."
+
 - id: FR-T6
   title: About screen with version, license, source link, credits, and a collects-nothing statement
   status: open
   tests: []
   note: "Implemented in Settings (version, licence and source line, collects-nothing statement), untested; contributor credits do not exist."
+
 - id: NFR-1
   title: Cold start to interactive group list under 800 ms on a mid-range 2022 device
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-21 - 519 to 635 ms over 5 runs, Galaxy S24 Ultra, debug build. Not yet measured on a mid-range 2022 device (BLOCKED.md)."
+
 - id: NFR-2
   title: Add-expense flow under 5 s and at most 3 taps for the equal-split default
   status: manual-evidence
@@ -331,6 +380,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a new expense then the amount field starts focused so typing can begin at once
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a ready split with a blank description then the hint says why save is disabled
   note: "PROGRESS.md 2026-08-24 - three taps and well under 5 s on device; the Compose tests pin the two fixes, not the timing."
+
 - id: NFR-3
   title: Balance recomputation for a 5,000-expense group under 100 ms
   status: manual-evidence
@@ -339,41 +389,49 @@
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/LedgerRepositoryTest.kt :: given a snapshot-restored group then state, op count, and pending count never decode the op log
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/LedgerRepositoryTest.kt :: given ops arriving in causal order then the fold is incremental
   note: "PROGRESS.md 2026-08-24 - cold open of the 5,007-op group in 98 to 102 ms (release, S24 Ultra, flagship only). Tests pin the snapshot and incremental-fold paths, not the timing."
+
 - id: NFR-4
   title: ML Kit OCR pass under 1.5 s
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-23 - at most 1.45 s end to end on device (debug build)."
+
 - id: NFR-5
   title: Optional VLM parse under 8 s with visible progress and cancel
   status: superseded
   tests: []
   note: "VLM tier dropped with no D number; recorded in SPEC section 7 (status 2026-08-18) and PROGRESS.md 2026-08-18 (M5 complete, scoped, no VLM)."
+
 - id: NFR-6
   title: Base APK size under 20 MB without the optional model
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-24 - foss flavor 9.7 MB arm64 release. The full flavor is 22 MB and misses the target (recorded deviation, 2026-08-21)."
+
 - id: NFR-7
   title: 60 fps on all scroll surfaces with no jank on 1,000-item lists
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-21 - 1.3% janky frames over 9 flings of the 5,000-row expense list (S24 Ultra, debug)."
+
 - id: NFR-8
   title: All features work offline except relay sync
   status: open
   tests: []
   note: "No test and no recorded airplane-mode run. No manifest declares INTERNET, which is checkable by inspection only."
+
 - id: NFR-9
   title: Domain-layer coverage above 90% line and 100% of split and settlement maths
   status: partial
   tests: []
   note: "Enforced by the Kover 90% line gate in check rather than by a test (PROGRESS.md 2026-08-17 recorded 97.9%); 100% of split and settlement maths is not separately gated."
+
 - id: NFR-10
   title: Accessibility - TalkBack labels, 4.5 to 1 contrast, 200% font, 48 dp touch targets
   status: open
   tests: []
   note: "No accessibility test and no recorded check."
+
 - id: NFR-11
   title: Data at rest uses SQLCipher with the key in Android Keystore and allowBackup false
   status: partial
@@ -383,21 +441,25 @@
     - core/data/src/androidTest/kotlin/app/dibs/core/data/EncryptedDatabaseTest.kt :: databaseDoesNotOpenWithoutTheOriginalPassphrase
     - core/data/src/test/kotlin/app/dibs/core/data/key/WrappedPassphraseStoreTest.kt :: given no stored passphrase when requested then a random 32-byte passphrase is created
   note: "The instrumented tests need hardware and are not in CI (run on device, PROGRESS.md 2026-08-18 addendum). allowBackup=false is set in the manifest, untested."
+
 - id: NFR-12
   title: No foreground services, wakelocks, or periodic polling when sync is off
   status: open
   tests: []
   note: "Implemented by design (WorkManager only; no service or wakelock declared), untested."
+
 - id: NFR-13
   title: Every string externalized, RTL layout correct, English first
   status: open
   tests: []
   note: "No test. Strings are externalized by convention; RTL is unverified and no translations exist."
+
 - id: NFR-14
   title: Reproducible build with the same commit producing the same APK hash
   status: open
   tests: []
   note: "Not started (no reproducible-build check, no release signing)."
+
 - id: edge-1
   title: Ten dollars split 3 ways gives 3.34, 3.33, 3.33 with a deterministic recipient shown in UI
   status: covered
@@ -407,18 +469,21 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given ten dollars split equally among three then the preview names the member who absorbed
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given an equal ten-dollar split of three cents remainder then the bar goes ready and names the absorber
   note: ""
+
 - id: edge-2
   title: One cent split 5 ways gives one person the cent, with a zero-share warning
   status: partial
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/MoneyEdgeCasesTest.kt :: given one cent when split equally among five then one member gets the cent and four get zero
   note: "The allocation and zeroShareMembers are tested; the editor shows no zero-share warning (zeroShareMembers is unused outside the domain)."
+
 - id: edge-3
   title: Zero-amount expense is allowed but flagged
   status: partial
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/MoneyEdgeCasesTest.kt :: given a zero-amount expense when split then it succeeds with all-zero shares flagged
   note: "Domain only; no editor test for a zero amount and no visible flag in the UI."
+
 - id: edge-4
   title: Negative amount is rejected at input
   status: partial
@@ -427,6 +492,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/money/MoneyInputTest.kt :: given garbage, negatives, or emptiness then parsing fails closed
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given a non-positive settlement amount then construction is rejected
   note: "Rejection is tested; the distinct refund transaction type the SPEC names does not exist."
+
 - id: edge-5
   title: Very large amounts up to Long.MAX_VALUE with overflow validation
   status: covered
@@ -436,6 +502,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/money/MoneyTest.kt :: given amounts near Long MAX_VALUE when added then overflow throws instead of wrapping
     - core/domain/src/test/kotlin/app/dibs/core/domain/money/MoneyInputTest.kt :: given a huge amount then overflow fails closed instead of wrapping
   note: ""
+
 - id: edge-6
   title: Zero-decimal currency (JPY) has no decimal separator or fractional units
   status: covered
@@ -445,6 +512,7 @@
     - core/ui/src/test/kotlin/app/dibs/core/ui/money/MoneyFormatterTest.kt :: given a zero-decimal currency when formatted then no decimal separator appears
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/CsvExportTest.kt :: given a zero-decimal currency then export renders whole units
   note: ""
+
 - id: edge-7
   title: Three-decimal currency (KWD) uses the correct exponent
   status: covered
@@ -453,6 +521,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/money/CurrenciesTest.kt :: given three-decimal currency KWD when exponent looked up then it is 3
     - core/ui/src/test/kotlin/app/dibs/core/ui/money/MoneyFormatterTest.kt :: given a three-decimal currency when formatted then three decimals appear from the domain exponent
   note: "The exponent comes from the embedded ISO-4217 table, not ICU (D1)."
+
 - id: edge-8
   title: Percentage split summing to 99.99% blocks save and shows the exact shortfall
   status: covered
@@ -460,6 +529,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/MoneyEdgeCasesTest.kt :: given percentages summing to 99.99 percent when split then save is blocked with the exact shortfall
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given percentages under 100 then the shortfall shown equals the domain allocator's shortfall
   note: ""
+
 - id: edge-9
   title: Exact split one cent short blocks save and offers a one-tap fix
   status: partial
@@ -468,12 +538,14 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given exact amounts under the total then the remaining indicator equals the domain allocator's remaining
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given exact mode with a partial assignment then the bar shows the domain remaining
   note: "Blocking and the remaining amount are tested; the one-tap add-the-cent fix does not exist."
+
 - id: edge-10
   title: All shares set to 0 blocks save with a clear message
   status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/MoneyEdgeCasesTest.kt :: given all shares set to zero when split then save is blocked with a typed failure
   note: "The editor message (issue_all_shares_zero) is implemented but not asserted in an editor test."
+
 - id: edge-11
   title: Sum invariance holds over 10,000 random splits
   status: covered
@@ -483,13 +555,16 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/SplitPropertyTest.kt :: given 10000 random percentage splits when allocated then every split sums exactly
     - core/domain/src/test/kotlin/app/dibs/core/domain/DeterminismTest.kt :: given 10000 random splits when input ordering is shuffled and rerun then output bytes are identical
   note: ""
+
 - id: edge-12
   title: Two members with the same name are allowed, disambiguated, never merged automatically
   status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given members then rows mark self, flag duplicate names, and sort active before inactive
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given the same person added on two devices then two member records exist
-  note: "The duplicate-name hint text and avatar colours are not asserted in Compose (the Compose test named for the hint checks other nodes)."
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given members then self chip, duplicate hint, and deactivated section render
+  note: ""
+
 - id: edge-13
   title: Removing a member with history is blocked and deactivate is offered
   status: covered
@@ -498,6 +573,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given member actions then add, rename, deactivate, and reactivate reach the ledger
   note: ""
+
 - id: edge-14
   title: Removing a member with a non-zero balance is blocked, with a write-off escape hatch
   status: partial
@@ -505,11 +581,13 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a write-off then the pair disappears and the history labels it as written off
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
   note: "Write-off is tested and removal is refused for a member with expense history; deactivating a member with a non-zero balance is not blocked and there is no settle-up-first prompt."
+
 - id: edge-15
   title: A member added after expenses exist has no retroactive share, stated in the UI
   status: open
   tests: []
   note: "No test and no UI statement. No retroactive share holds by construction (shares are stored per expense)."
+
 - id: edge-16
   title: A group with one member is allowed and hides settlement UI
   status: covered
@@ -517,16 +595,19 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a single-member group then the settle tab explains there is nobody to settle with
     - core/domain/src/test/kotlin/app/dibs/core/domain/settle/SettlementTest.kt :: given a single-member group when simplified then no transfers are suggested
   note: ""
+
 - id: edge-17
   title: A group with 100 members must not degrade, with a warning above 50
   status: open
   tests: []
   note: "No test with 100 members; the warning above 50 does not exist."
+
 - id: edge-18
   title: Deleting the only group returns to the empty state without a crash
   status: open
   tests: []
   note: "Delete group does not exist. The empty groups state itself is tested in GroupsScreenTest."
+
 - id: edge-19
   title: Renaming a member propagates everywhere and history keeps the rename
   status: covered
@@ -534,6 +615,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given a rename then it wins by replay order and the name history keeps every step
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given member actions then add, rename, deactivate, and reactivate reach the ledger
   note: ""
+
 - id: edge-20
   title: Two devices editing the same expense offline resolve by LWW per field with both in history
   status: partial
@@ -542,6 +624,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given two devices edit the same field concurrently then the winner is decided by lamport then deviceId
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given concurrent edits then the history lists both ops with their device ids
   note: "LWW and history are tested; the from-another-device note in the history sheet is implemented, untested."
+
 - id: edge-21
   title: Delete on one device beats a concurrent edit, which stays in history and trash
   status: covered
@@ -550,6 +633,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given a deleted-while-edited expense when restored from trash then it returns with the edits applied
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ConvergenceSimulationTest.kt :: given a concurrent delete and edit of the same expense then both merge orders yield byte-identical
   note: ""
+
 - id: edge-22
   title: Device clock at 1970 or 2099 does not affect ordering, with a skew warning past 24 h
   status: partial
@@ -558,6 +642,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ClockSkewTest.kt :: given a device with its clock set to 2099 then folded state is byte-identical
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ClockSkewTest.kt :: given the newest received op is more than 24 hours ahead of the local clock
   note: "Ordering and the skew check are tested in the domain; the warning is never surfaced in the UI."
+
 - id: edge-23
   title: A duplicate op is a no-op by content-addressed id
   status: covered
@@ -567,6 +652,7 @@
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given the same bundle imported twice then the second adds nothing
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an older update file opened after a newer one then nothing is added and nothing is lost
   note: ""
+
 - id: edge-24
   title: Ops arriving out of causal order buffer until parents arrive and surface as syncing
   status: partial
@@ -575,6 +661,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/OpLogTest.kt :: given a grandchild whose parent is itself pending then the whole chain stays pending
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/LedgerRepositoryTest.kt :: given ops with missing parents then they persist and are reported pending
   note: "Buffering and the pending count are tested; the Syncing chip in group detail is implemented, untested."
+
 - id: edge-25
   title: An op referencing an unknown member is quarantined, with an incomplete-data notice
   status: partial
@@ -583,12 +670,14 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given an edit referencing an unknown expense then it is quarantined
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ConvergenceSimulationTest.kt :: given the same op set on every device then even quarantined and pending bookkeeping is identical
   note: "Quarantine is tested; no UI shows an incomplete-data notice."
+
 - id: edge-26
   title: Same person joining twice yields two member records and an offered merge, never silent
   status: partial
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given the same person added on two devices then two member records exist and a merge is suggested
   note: "Detection only (D16); the merge action does not exist."
+
 - id: edge-27
   title: Corrupted or tampered sync bundle fails authentication and is rejected wholesale
   status: covered
@@ -598,22 +687,30 @@
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a bundle signed by a non-member holding the group key then it is rejected and nothing applies
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an invite file damaged in transit then it is rejected wholesale
   note: ""
+
 - id: edge-28
   title: Bundle from another app version skips unknown ops with a warning and hard-fails on major mismatch
-  status: partial
+  status: covered
   tests:
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncBundlesTest.kt :: given a bundle from a newer major version then it is a hard specific error
-  note: "The major-version hard fail is tested; unknown-op skipping is implemented in SyncBundles.decode, untested (every test asserts skippedUnknownOps is 0), and no warning for it is asserted."
+    - core/sync/src/test/kotlin/app/dibs/core/sync/SyncBundlesTest.kt :: given an op type from a newer minor version then it is skipped with a count and the rest applies
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/SyncSharingTest.kt :: given every import outcome then each has its own non-empty message
+  note: ""
+
 - id: edge-29
-  title: Massive 10 MB bundle is stream-parsed with progress and cancel
-  status: open
-  tests: []
-  note: "Feature does not exist (bundles are decoded in memory, no progress or cancel) and no test."
+  title: Massive bundle is read off the main thread with a hard size cap and a progress state (D45)
+  status: partial
+  tests:
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/IncomingFilesTest.kt :: given a file over the cap then it is refused without reading the rest
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/IncomingFilesTest.kt :: given a file exactly at the cap then it is accepted
+  note: "Per D45 the file is bounded at 24 MB rather than stream-parsed. An oversized file is reported as not a Dibs file rather than with its own message, there is no cancel, and no test imports a bundle of several MB end to end."
+
 - id: edge-30
   title: Relay unreachable queues locally with backoff and shows a pending count
   status: open
   tests: []
   note: "Feature does not exist; relay sync is deferred by D41 (ROADMAP P9)."
+
 - id: edge-31
   title: Relay purging old events is handled by a full-snapshot handoff from any member
   status: partial
@@ -621,23 +718,30 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an invite file then the joiner sees the group, claims their name, and both phones converge
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a member's bundle then the joiner folds to byte-identical state
   note: "A full-log handoff from a member on join is tested; the relay side does not exist (deferred by D41)."
+
 - id: edge-32
   title: Two people settling the same debt both record, with a possible-duplicate hint
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given both phones recording the same repayment offline then both are kept and the overpayment shows
-  note: "Both settlements and the resulting credit are asserted on the folded state; the possible-duplicate-settlement hint does not exist."
+    - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/DuplicateSettlementsTest.kt :: given the same repayment recorded twice so the payer is now in credit then both are flagged
+    - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/DuplicateSettlementsTest.kt :: given two identical payments that were both really owed then nothing is flagged
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the same repayment recorded twice then the settle tab hints at a possible duplicate
+  note: ""
+
 - id: edge-33
   title: Camera permission denied leaves gallery and manual entry available
   status: manual-evidence
   tests: []
   note: "PROGRESS.md 2026-08-21 - gallery and type-it-in fallbacks seen on device (with permission granted). The denied state itself is implemented with no test and no recorded run."
+
 - id: edge-34
   title: Blurry, dark or glare image gets a pre-capture hint and post-capture retry advice
   status: partial
   tests:
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given nothing found then capture shows retake advice instead of a dead end
   note: "Post-capture advice is tested; the pre-capture hint is static text with no quality detection, untested."
+
 - id: edge-35
   title: Long receipt uses multi-frame capture with boundary de-duplication
   status: covered
@@ -646,12 +750,14 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given two frames with a repeated identical item that is genuinely bought twice
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given multiple frames then their drafts merge with boundary dedupe
   note: ""
+
 - id: edge-36
   title: Creased or torn receipt flags unparsed regions for manual entry
   status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given an unclassifiable price row after the summary then it is flagged, not guessed
   note: ""
+
 - id: edge-37
   title: Handwritten receipt is detected as low confidence and routed to manual entry
   status: covered
@@ -660,11 +766,13 @@
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given an image with no usable text then the result is NothingFound, routing to manual entry
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given nothing found then capture shows retake advice instead of a dead end
   note: ""
+
 - id: edge-38
   title: Non-English receipt support is Latin only, with unsupported scripts documented
   status: open
   tests: []
   note: "Implemented as a static note (scan_nonlatin_note), untested; there is no script detection."
+
 - id: edge-39
   title: Items not summing to the printed total are flagged by the arithmetic gate
   status: covered
@@ -673,6 +781,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given a sum within two minor units of the total then the 0-point-02 gate still passes
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given a review edit fixing a bad amount then the arithmetic gate re-runs and passes
   note: "The gate flags but does not block approval (PROGRESS.md 2026-08-18); the editor then requires items to sum."
+
 - id: edge-40
   title: An OCR digit misread is caught by the gate, with per-field confidence and mandatory review
   status: partial
@@ -680,6 +789,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given OCR misreading one digit then the sum mismatch is caught by the gate
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given a parsed frame then review opens with the draft and the group currency
   note: "The gate and the mandatory review are tested; per-field confidence does not exist."
+
 - id: edge-41
   title: Negative line items (discounts) parse and reduce the subtotal used for tax proration
   status: covered
@@ -688,34 +798,40 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given a discount row after the subtotal then it becomes a negative item
     - core/domain/src/test/kotlin/app/dibs/core/domain/split/ItemizedSplitTest.kt :: given a shared discount line item when split then it reduces the subtotal used for tax proration
   note: ""
+
 - id: edge-42
   title: Hand-written tip stays editable on the review screen
   status: covered
   tests:
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given the approved review then the handoff carries the edited items and the stored image name
   note: "The test sets the tip on the review state; the Compose tip field is not exercised."
+
 - id: edge-43
   title: Receipt with only a total degrades to a single-amount expense
   status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given a total-only receipt then it degrades to a single-amount draft with a flag
   note: ""
+
 - id: edge-44
   title: Interrupted model download is resumable, checksum-verified, and cleans up
   status: superseded
   tests: []
   note: "VLM tier dropped with no D number; recorded in SPEC section 7 (status 2026-08-18) and PROGRESS.md 2026-08-18 (M5 complete, scoped, no VLM)."
+
 - id: edge-45
   title: Insufficient storage or RAM for the VLM is detected before download
   status: superseded
   tests: []
   note: "VLM tier dropped with no D number; recorded in SPEC section 7 (status 2026-08-18) and PROGRESS.md 2026-08-18 (M5 complete, scoped, no VLM)."
+
 - id: edge-46
   title: OCR taking too long hits a 10 s timeout, is cancellable, and falls back to manual
   status: partial
   tests:
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given recognition exceeding the ten second budget then it times out instead of hanging
   note: "The timeout is tested; the scan screen's timeout message and manual fallback are implemented, untested."
+
 - id: edge-47
   title: Same receipt scanned twice is detected and the user is asked
   status: covered
@@ -723,6 +839,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given the same parsed content then fingerprints collide and different content does not
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given an expense already carrying this receipt's fingerprint then review warns
   note: ""
+
 - id: edge-48
   title: Splitwise CSV in a non-English locale is detected and the user told to re-export
   status: covered
@@ -730,12 +847,14 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a non-English header then parsing fails with the re-export advice, never mis-maps
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a non-English export header then the flow reports it instead of guessing
   note: ""
+
 - id: edge-49
   title: CSV with a comma decimal separator is detected and parsed
   status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given comma decimals then the separator is detected from the file
   note: ""
+
 - id: edge-50
   title: CSV member names not matching Dibs members go through a mapping screen
   status: covered
@@ -743,6 +862,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a parsed file when mapped and confirmed then the new group folds to the imported ledger
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given back from preview then edits to the mapping survive
   note: "D34 - import always creates a new group, so mapping is rename plus this-is-me and every name becomes a new member."
+
 - id: edge-51
   title: CSV settlement rows are detected and imported as settlements
   status: covered
@@ -750,6 +870,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a Payment row then it converts to a settlement, not an expense
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a parsed file when mapped and confirmed then the new group folds to the imported ledger
   note: ""
+
 - id: edge-52
   title: CSV Total balance trailer row is skipped and used as a checksum
   status: covered
@@ -757,6 +878,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a Total balance trailer then it is skipped and used as a checksum
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a checksum mismatch then the import still parses but flags it
   note: ""
+
 - id: edge-53
   title: Multi-currency CSV is grouped per currency and never summed across
   status: covered
@@ -764,6 +886,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a multi-currency file then totals are reported per currency, never summed across
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given expenses in two currencies when netted then balances are kept per currency
   note: ""
+
 - id: edge-54
   title: Malformed CSV rows are listed with reasons in a preview before any write
   status: covered
@@ -772,6 +895,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given an empty file or missing member columns then parsing fails cleanly
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a parsed file when mapped and confirmed then the new group folds to the imported ledger
   note: "The skipped-row list on the preview step is not asserted at the ViewModel or Compose level."
+
 - id: edge-55
   title: Re-importing the same file is idempotent
   status: covered
@@ -779,6 +903,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given the same row content then the derived expense id is stable per file, so re-imports dedupe
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a file whose rows already exist then preview flags it and confirm refuses to duplicate
   note: ""
+
 - id: edge-56
   title: Very large CSV (5,000 rows) is streamed with progress, cancellable, transactional
   status: partial
@@ -786,6 +911,7 @@
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/LedgerRepositoryTest.kt :: given a batch appendAll then ops chain like sequential appends and the projection is written exactly once
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given confirm tapped twice before the write finishes then only one group is created
   note: "The single batched write and the Importing step are tested; 5,000 rows were measured on device only (PROGRESS.md 2026-08-21, about 1.5 s). The import is not streamed and not cancellable."
+
 - id: edge-57
   title: Restoring onto a device with data offers merge or replace, defaults to merge, snapshots first
   status: partial
@@ -793,6 +919,7 @@
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given a device with existing data then restore merges instead of replacing
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given the same backup restored twice then the second restore adds nothing
   note: "Merge is tested; replace is not offered (D35) and no snapshot is taken before a restore."
+
 - id: edge-58
   title: Wrong backup passphrase gives a specific error with no partial write and no lockout
   status: covered
@@ -801,6 +928,7 @@
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupServiceTest.kt :: given the wrong passphrase then restore reports it and writes nothing
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given restore outcomes then each maps to its own user-visible event
   note: ""
+
 - id: edge-59
   title: Corrupted backup file is detected by AEAD and refused cleanly
   status: covered
@@ -808,28 +936,34 @@
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupCodecTest.kt :: given any single flipped byte then AEAD rejects the file wholesale
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupCodecTest.kt :: given garbage or truncated input then decode fails cleanly
   note: ""
+
 - id: edge-60
   title: Lost backup passphrase is unrecoverable and this is said loudly at creation
   status: open
   tests: []
   note: "Implemented as dialog text (backup_dialog_body), untested."
+
 - id: edge-61
   title: Process death mid-expense-entry restores the draft from SavedStateHandle
   status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a process-death draft in SavedStateHandle then the editor restores it verbatim
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given the process dies between opening a link and receiving updates then the join resumes
+    - scripts/e2e/run.py :: def f29(
   note: ""
+
 - id: edge-62
   title: Configuration change or rotation keeps state without a reload
   status: open
   tests: []
   note: "No rotation or configuration-change test and no recorded check; state lives in ViewModels and rememberSaveable by convention."
+
 - id: edge-63
   title: Storage full on save gives a specific error, retry, and an offer to clear receipt images
   status: open
   tests: []
   note: "Feature does not exist (no storage-full handling) and no test."
+
 - id: edge-64
   title: Database migration failure auto-restores the pre-migration backup and reports it
   status: partial
@@ -838,42 +972,50 @@
     - core/data/src/test/kotlin/app/dibs/core/data/db/DatabaseBackupManagerTest.kt :: given a downgrade when opening then a backup is still taken
     - core/data/src/test/kotlin/app/dibs/core/data/db/DibsDatabaseMigrationTest.kt :: given a database created at version 1 from its exported schema then walking all migrations
   note: "The pre-migration backup and the migration walk are tested; automatic restore on failure and the error report do not exist."
+
 - id: edge-65
   title: App killed during import leaves the import fully applied or not at all
   status: partial
   tests:
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/LedgerRepositoryTest.kt :: given a batch appendAll then ops chain like sequential appends and the projection is written exactly once
   note: "One batched write is tested; no test fails or kills the write midway to prove all-or-nothing."
+
 - id: edge-66
   title: Time zone change mid-trip
   status: superseded
   tests: []
   note: "D30 - expense dates are civil dates (epoch day), so there is no zone to shift."
+
 - id: edge-67
   title: DST transition
   status: superseded
   tests: []
   note: "D30 - civil-date storage has no DST behaviour."
+
 - id: edge-68
   title: System font at 200% shows no clipping on any screen
   status: open
   tests: []
   note: "No test (large-font previews only) and no recorded on-device check."
+
 - id: edge-69
   title: Landscape and tablet layouts are responsive with no letterboxing
   status: open
   tests: []
   note: "No test and no recorded check."
+
 - id: edge-70
   title: Battery saver and Doze - WorkManager only, never a foreground service
   status: open
   tests: []
   note: "Implemented by design (RecurringWorker on WorkManager, no service declared), untested."
+
 - id: edge-71
   title: Android 8 minimum SDK with all APIs guarded
   status: open
   tests: []
   note: "No test on API 26 and no recorded run (lint NewApi only)."
+
 - id: edge-72
   title: Stolen phone is mitigated by app lock and SQLCipher at rest
   status: partial
@@ -882,6 +1024,7 @@
     - core/data/src/androidTest/kotlin/app/dibs/core/data/EncryptedDatabaseTest.kt :: databaseDoesNotOpenWithoutTheOriginalPassphrase
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
   note: "SQLCipher at rest is covered by the instrumented test (hardware only, not in CI); the biometric lock gate is untested with no recorded on-device check."
+
 - id: edge-73
   title: Screenshot blocking via FLAG_SECURE as an opt-in setting
   status: partial
@@ -889,15 +1032,17 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given a fresh install when settings are read then the defaults apply
   note: "The opt-in setting is tested; applying FLAG_SECURE to the window (MainActivity) is untested."
+
 - id: edge-74
   title: Forged ops from a malicious member are rejected by signatures and the sync boundary
-  status: partial
+  status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/IdentityOpsTest.kt :: given a tampered signature then the op is quarantined as invalid signature
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/IdentityOpsTest.kt :: given an inviter who is not a claimed member then CreateInvite is quarantined
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a bundle signed by a non-member holding the group key then it is rejected
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncBundlesTest.kt :: given a signature by a different key then the bundle reports the forgery
-  note: "Signed membership ops and sender-signed bundles are tested; the AnnounceDevice op the SPEC names does not exist (the sender gate checks claimed-member keys instead)."
+  note: "As built per D44 - no AnnounceDevice op; the sender of every bundle must be a claimed, non-removed member after a dry-run fold. SPEC edge 74 was updated to match."
+
 - id: edge-75
   title: Malicious relay replay is idempotent and dropped ops show as possibly missing changes
   status: covered
@@ -906,15 +1051,17 @@
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncBundlesTest.kt :: given a sender clock ahead of the ops shipped then the receiver can name the gap
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SyncSharingTest.kt :: given every import outcome then each has its own non-empty message
   note: ""
+
 - id: edge-76
   title: Deep link with a crafted payload is strictly parsed, size-capped, and fuzz-tested
-  status: partial
+  status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/HandlesAndLinkTest.kt :: given malformed links then parsing rejects wholesale, never partially
-    - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given text that is not an invite link then nothing is adopted and the problem is specific
     - core/domain/src/test/kotlin/app/dibs/core/domain/sync/InviteFileTest.kt :: given arbitrary bytes then decoding never throws
-    - core/domain/src/test/kotlin/app/dibs/core/domain/sync/InviteFileTest.kt :: given a truncated file at every length then decoding returns null and never throws
-  note: "InviteLink.parse has hand-picked malformed cases only; the fuzz-style tests cover the invite file container. The app does not yet receive the dibs://join intent (MainActivity never reads intent.data)."
+    - core/domain/src/test/kotlin/app/dibs/core/domain/sync/InviteFileTest.kt :: given a valid file with random bytes flipped then decoding never throws
+    - app/src/test/kotlin/app/dibs/IncomingIntentsTest.kt :: given other schemes, other actions, or nothing useful then nothing is opened
+  note: "InviteLink.parse itself has hand-picked malformed cases, not a property test; the invite file, which embeds a link, is property-fuzzed."
+
 - id: edge-77
   title: Publicly shared backup stays encrypted, with a passphrase strength meter enforced
   status: covered
@@ -923,6 +1070,7 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given a weak passphrase then backup is refused even if the dialog were bypassed
     - core/data/src/test/kotlin/app/dibs/core/data/backup/BackupCodecTest.kt :: given two backups of the same payload then salts differ so ciphertexts differ
   note: ""
+
 - id: F01
   title: First run - three onboarding pages, skip, enter name, no permission asked
   status: partial
@@ -932,6 +1080,7 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/onboarding/OnboardingViewModelTest.kt :: given a name entered when onboarding completes then the name and completion flag persist
     - app/src/test/kotlin/app/dibs/MainViewModelTest.kt :: given onboarding completes while the app is open then the state updates without a restart
   note: "No test that no permission is requested; no screenshot (L3) or end-to-end (L4) test."
+
 - id: F02
   title: Create group with name, emoji, colour, currency, and creator self-claim
   status: partial
@@ -940,6 +1089,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given a blank group name then create does nothing
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given the create screen then create stays disabled until a name is typed
   note: "The colour picker does not exist; no end-to-end test through the real database."
+
 - id: F03
   title: Members - add, rename, deactivate, reactivate, remove, duplicate-name badge
   status: partial
@@ -949,6 +1099,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given members then self chip, duplicate hint, and deactivated section render
   note: "The duplicate-name hint is not asserted in Compose and the Remove menu item has no Compose test; no screenshot test."
+
 - id: F04
   title: Add an equal-split expense in three taps, under five seconds
   status: partial
@@ -957,6 +1108,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a new expense then the amount field starts focused so typing can begin at once
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a ready split with a blank description then the hint says why save is disabled
   note: "Tap count and timing are on-device evidence only (PROGRESS.md 2026-08-24); no end-to-end test through the real database."
+
 - id: F05
   title: Non-equal split modes with live remaining bar, blocked saves, one-tap fix, one-cent note
   status: partial
@@ -966,12 +1118,17 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given exact mode with a partial assignment then the bar shows the domain remaining
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given an equal ten-dollar split of three cents remainder then the bar goes ready
   note: "Shares and adjustment modes have no editor test; the one-tap fix does not exist; the all-zero-shares message is not asserted; no screenshot test."
+
 - id: F06
   title: Multi-payer expense
   status: partial
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given multiple payers on one expense when netted then each payer is credited their contribution
-  note: "Domain only; the editor cannot enter more than one payer."
+    - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given several payers entered then the saved expense records each payment and they sum to the total
+    - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given payments that do not add up to the total then save is blocked and nothing is written
+    - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an expense with two payers when only the description is edited then who paid what is untouched
+  note: "Tested at ViewModel level. No Compose test of the several-payers fields and no on-device flow yet."
+
 - id: F07
   title: Edit an expense, view history, see the edited-on-another-device note
   status: partial
@@ -980,6 +1137,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a percent expense when reopened then it prefills as exact amounts with the stored truth
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given concurrent edits then the history lists both ops with their device ids
   note: "The history sheet and the from-another-device note are untested in Compose; no end-to-end test."
+
 - id: F08
   title: Delete, trash, restore, hidden after 30 days
   status: partial
@@ -988,12 +1146,14 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion then trash shows the days remaining and restore brings the expense back
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion older than 30 days then the trash no longer offers it
   note: "The trash screen has no Compose test; no end-to-end test through the real database."
+
 - id: F09
   title: Duplicate an expense
   status: partial
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given duplicateOf then the editor prefills from the source but saves a brand-new expense
   note: "The Duplicate row action in the expense list and its navigation are untested."
+
 - id: F10
   title: Recurring rule with notification, prefilled editor, explicit confirm, never auto-create
   status: partial
@@ -1002,12 +1162,14 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/settings/RecurringRulesTest.kt :: given a rule due exactly today then advancing lands strictly in the future
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a repeat choice when saved then a device-local recurring rule is created against the new expense
   note: "RecurringWorker, the notification, the prefilled editor route and the explicit confirm are untested; no end-to-end test."
+
 - id: F11
   title: Search and filter by text, member, category, date range, amount
   status: partial
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given text, member, and category filters then only matching expenses remain
   note: "Date-range and amount filters do not exist; the search UI has no Compose or screenshot test."
+
 - id: F12
   title: Balances - pairwise, simplify toggle with explanation, member detail drill-down
   status: partial
@@ -1016,6 +1178,7 @@
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/PairwiseBalancesTest.kt :: given 2000 random multi-payer ledgers then every member's pairwise net equals their overall net balance
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the balances tab then pairwise debts show and the simplify toggle swaps the view
   note: "Member detail drill-down does not exist; no screenshot test."
+
 - id: F13
   title: Settle up - suggested, manual, partial, write-off, history
   status: partial
@@ -1025,22 +1188,26 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a write-off then the pair disappears and the history labels it as written off
     - core/domain/src/test/kotlin/app/dibs/core/domain/settle/SettlementTest.kt :: given 10000 random zero-sum balances when transfers applied then every member's balance reaches exactly zero
   note: "The record-payment dialog and manual payment entry are untested (dialogs do not idle under Robolectric); the payments history list is not asserted in Compose; no end-to-end test."
+
 - id: F14
   title: Remind with a shareable text summary
   status: open
   tests: []
   note: "Feature does not exist."
+
 - id: F15
   title: Just-this-once ad-hoc split
   status: open
   tests: []
   note: "Implemented (QuickAddViewModel), untested at every level."
+
 - id: F16
   title: Archive and unarchive, delete group with typed confirmation and pre-delete backup
   status: partial
   tests:
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/GroupStateCodecTest.kt :: given a state exercising every branch then the codec roundtrips it losslessly
   note: "Only the codec roundtrip touches the archived flag; archive and unarchive UI are implemented, untested. Delete group with typed confirmation and pre-delete backup does not exist."
+
 - id: F17
   title: Scan - capture, review, itemized editor, save, gallery, multi-frame, denial, duplicate, timeout, foss
   status: partial
@@ -1050,6 +1217,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a reviewed receipt handoff then the editor opens itemized with items, tax, tip, and the photo ref
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given recognition exceeding the ten second budget then it times out instead of hanging
   note: "Camera capture, gallery pick, the permission-denied state, the multi-frame UI and the foss NoOpReceiptParser path have no automated test (camera and foss smoke runs are on-device, PROGRESS.md 2026-08-21 to 2026-08-24); no end-to-end test."
+
 - id: F18
   title: Splitwise import - mapping, preview, skipped rows, checksum, re-import refused, 5,000 rows, non-English
   status: partial
@@ -1059,12 +1227,14 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/ImportViewModelTest.kt :: given a non-English export header then the flow reports it instead of guessing
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/SplitwiseCsvTest.kt :: given a checksum mismatch then the import still parses but flags it
   note: "Skipped rows and the checksum warning are not asserted on the preview step; 5,000 rows were measured on device only (PROGRESS.md 2026-08-21); no end-to-end test."
+
 - id: F19
   title: CSV export, then re-import
   status: partial
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/importer/CsvExportTest.kt :: given a group with expenses and a settlement then the export re-imports with identical nets
   note: "The domain round trip is tested; the Export CSV menu action and the SAF write are untested."
+
 - id: F20
   title: Backup - create with strength meter, restore fresh and as merge, wrong passphrase, corrupt file, reminder
   status: partial
@@ -1074,6 +1244,7 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given a weak passphrase then backup is refused even if the dialog were bypassed
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given restore outcomes then each maps to its own user-visible event
   note: "The reminder banner and the passphrase dialog are untested; corrupt-file rejection is tested in BackupCodecTest; no end-to-end test."
+
 - id: F21
   title: Invite - create, show QR, share link
   status: partial
@@ -1083,6 +1254,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given someone else has claimed and we have not when inviting then nothing is written
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/HandlesAndLinkTest.kt :: given an invite link when encoded and parsed then it round-trips
   note: "QR rendering (QrCode.kt), the invite dialog and the share-link action are untested; no screenshot test."
+
 - id: F22
   title: Join - open link or scan QR, preview, claim an existing member or create one
   status: partial
@@ -1092,6 +1264,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given the same invite opened again after joining then the joiner is simply taken to their group
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/QrDecoderTest.kt :: given a frame showing an invite code then the exact link text is returned
   note: "Tested at ViewModel level with two in-memory phones over the real fold and SyncService, plus JoinCheckTest in the domain. JoinScreen has no Compose test and is not reachable from app navigation (no route; MainActivity ignores the dibs://join intent); the QR scan screen exists but is not wired in and only its decoder is tested; no two-emulator or two-phone run."
+
 - id: F23
   title: Share and import updates, every ImportOutcome message, some-changes-may-be-missing
   status: partial
@@ -1101,6 +1274,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SyncSharingTest.kt :: given every import outcome then each has its own non-empty message
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given a group never shared then the sync chip stays quiet, and after a share it tracks new changes
   note: "The share-sheet and file-pick wiring in GroupDetailScreen are untested; opening an update file from outside the app is ViewModel-only (no file association in the manifest, join screen unreachable); no end-to-end test."
+
 - id: F24
   title: Two devices offline - concurrent edits, delete against edit, double settlement, convergence
   status: partial
@@ -1109,7 +1283,8 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given one phone deletes while the other edits then delete wins and the edit survives a restore
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given both phones recording the same repayment offline then both are kept and the overpayment shows
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ConvergenceSimulationTest.kt :: given 500 random interleaved op streams with drops, duplicates, reordering
-  note: "Covered with two in-memory phones; the double settlement has no possible-duplicate hint; no two-emulator end-to-end test."
+  note: "Covered with two in-memory phones over the real SyncService, and on two emulators (scripts/e2e F24) once that run is recorded in PROGRESS.md."
+
 - id: F25
   title: Invite lifecycle - expiry, revoke, reuse refused, approval mode, joined-via-your-invite with remove
   status: partial
@@ -1119,6 +1294,7 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a single-use invite a third person already used then the second joiner is told it is used up
   note: "ViewModel level only (expiry is covered by a further TwoDeviceJoinTest case). The approve, remove and cancel-invite controls in MembersScreen have no Compose test, the joiner side is unreachable from app navigation, and there is no two-emulator test."
+
 - id: F26
   title: Settings - theme, dynamic colour, language, display name, default currency, split mode, group
   status: partial
@@ -1127,23 +1303,27 @@
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given an update when the store is reopened then the settings survive
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given a corrupted settings file when read then it recovers to defaults instead of crashing
   note: "Language, default split mode and default group do not exist; the Settings screen has no Compose or screenshot test."
+
 - id: F27
   title: App lock and screenshot blocking
   status: partial
   tests:
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
   note: "Only toggle persistence is tested; the biometric prompt and FLAG_SECURE need a device and PROGRESS.md records no check of either."
+
 - id: F28
   title: Storage usage, clear receipt images, About
   status: open
   tests: []
   note: "Storage usage and clear receipt images do not exist; About is implemented, untested."
+
 - id: F29
   title: Lifecycle - process death, rotation, 200% font, dark, RTL, tablet, TalkBack, API 26
   status: partial
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a process-death draft in SavedStateHandle then the editor restores it verbatim
   note: "Only process death is tested. Rotation, 200% font, dark, RTL, tablet and landscape, TalkBack and API 26 have no test and no recorded check."
+
 - id: F30
   title: Failure paths - storage full, migration failure with automatic restore, airplane mode
   status: partial

@@ -1,86 +1,61 @@
-# PLAN — M3 (The app), staged 3a → 3d
+# PLAN — finishing P2 and starting P3
 
-Prior plans in git history. Each stage ends with `./gradlew check` green, an
-install on the connected device, and a stop for review.
+The working plan for the current stretch of [ROADMAP.md](ROADMAP.md). Prior
+plans are in git history. Status of each requirement lives in
+[docs/requirements.yaml](docs/requirements.yaml), not here.
 
-## Architecture decisions that shape all four stages
+## Where things stand
 
-- **Features depend on `:core:domain` only** (CLAUDE.md dependency diagram), so
-  every capability a screen needs is an *interface in the domain*, implemented
-  in `:core:data`, bound by Hilt in `:app`. SPEC §5.5 already demands this for
-  `Ledger`; settings get the same treatment (`SettingsStore`).
-- **New module `:core:ui`** (design system: theme, tokens, shared components,
-  money/date formatting). The CLAUDE.md module map doesn't list it — this is a
-  recorded extension, not a silent deviation (DECISIONS.md D20): five feature
-  modules cannot each own a copy of the theme, and `:app` may contain nothing
-  but wiring. Direction stays clean: `:feature:* -> :core:ui -> :core:domain`.
-- **Typed DataStore via kotlinx-serialization**, not protobuf codegen
-  (DECISIONS.md D21): same androidx DataStore machinery and atomicity, typed
-  schema, one less compiler toolchain.
-- The **Activity tab** lives in `:feature:groups` (it is a cross-group ledger
-  feed); **onboarding** lives in `:feature:settings` (it writes preferences).
-- Money is **formatted only via `android.icu`** in `:core:ui`
-  (`MoneyFormatter`); the minor-units→decimal move for display uses the
-  domain's own exponent table, so display can never disagree with arithmetic.
+| Phase | State |
+|---|---|
+| P0 Get back to green | Done |
+| P1 Verification harness | Done in a different shape than planned (D50, D51). Not done: screenshot tests, CI for the on-device flows |
+| P2 Finish sync tier 1 | Feature-complete on Android and verified at three levels (below). Remaining items listed under "Left in P2" |
+| P3 onwards | Not started, except three P3 items closed early (several payers, duplicate-settlement hint, edge 28 warning) |
 
-## Stage 3a — shell, theme, tokens, onboarding, empty states
+## How P2 was verified
 
-Build:
-- `:core:ui`: full warm M3 palette (light/dark) + dynamic color on 12+,
-  `MoneyColors` (owed green / owe red / settled neutral) via CompositionLocal,
-  spacing tokens, amount typography with tabular figures, `MoneyFormatter`
-  (android.icu), `EmptyState` component, previews (light/dark/200% font).
-- `:core:domain`: `UserSettings` + `SettingsStore` interface (Flow-based).
-- `:core:data`: DataStore-backed `SettingsStore` implementation + Hilt binding.
-- `:feature:settings`: 3-page onboarding (what Dibs is / your data stays on
-  this phone, back it up / enter your name), skippable, no permissions asked;
-  Settings tab placeholder (real settings in 3d).
-- `:feature:groups`: Groups tab with designed empty state ("Create a group" +
-  "Import from Splitwise" side by side; import shows a "coming soon" note until
-  M4 — DECISIONS.md), Activity tab empty state.
-- `:app`: single-activity nav shell — onboarding gate, bottom nav
-  (Groups / Activity / Settings), FAB on Groups; theme driven by settings.
+1. **Domain** (`:core:domain`): invite file codec and the join pre-flight, with
+   property tests that arbitrary and mutated bytes never throw.
+2. **Two simulated phones** (`TwoDeviceJoinTest`): separate ledgers, key
+   stores and identities, the real `SyncService`, and only bytes crossing
+   between them. Invite-file and bare-link joins, revoked, expired and used-up
+   invites, a race for one invite, approval, removal, damaged files, concurrent
+   edits, delete against edit, double settlement.
+3. **Two emulators** (`scripts/e2e`): the installed debug APK driven over adb,
+   with files pulled off one phone and opened on the other.
 
-Tests first: DataStore round-trip + defaults; OnboardingViewModel (fake store,
-Turbine); Robolectric Compose tests — onboarding pager flow (skip and
-name-entry paths hit the store), Groups empty state shows both actions;
-MoneyFormatter for USD/JPY/KWD incl. tabular rendering path; start-destination
-logic. Robolectric runs Compose UI tests on the JVM; no emulator.
+## Left in P2
 
-## Stage 3b — groups and members
+- **Two physical phones.** The ROADMAP exit gate asks for one pass on real
+  hardware through a real chat app. Emulators cannot show how WhatsApp or
+  Signal label a `.dibsinvite` file or whether "Open with Dibs" is offered.
+- **QR scan on a camera.** The decoder is unit-tested and the screen is wired
+  in; nothing has pointed a real camera at a real code.
+- **Clock-skew warning (edge 22).** The check exists in the domain; surfacing
+  it needs the newest op's wall clock without loading the op log (D40).
+- **Member merge (edge 26).** Still detection only. Needs a design that
+  reconciles claimed identities (AUDIT T8) before any op is added.
+- **"Import updates" from inside a group** uses the system file picker; it is
+  covered by ViewModel tests but not by the on-device flows, which use
+  "open with Dibs" instead.
 
-`Ledger` interface extracted to domain (append/observe/state/pending);
-`CreateGroup`/group metadata ops added to the op-log (new payloads: group name,
-emoji/color, default currency — schema-compatible, quarantine-safe). Screens:
-group list (net position per group, color-coded), create group, group detail
-scaffold (tabs: Expenses / Balances / Settle up), member management
-(add/rename/deactivate with edge-13 blocking), duplicate-name badge (edge 12),
-merge prompt fed by `DuplicateMembers` (edge 26). Room projection queries feed
-list screens. Tests: ViewModels over fake Ledger; projector tests for new
-payloads; Compose tests for list/create/member flows.
+## Next: P3, in this order
 
-## Stage 3c — expense entry and the six split editors
+Work the `open` and `partial` entries in `docs/requirements.yaml`. The ones
+that change what users see come first:
 
-Add/edit expense screen (amount keypad focused first, ≤3 taps for equal split),
-split-mode chip row, per-mode editors with the live "remaining to assign" bar
-(green at exactly zero), multi-payer, edit history view, duplicate expense.
-Every editor validates through `SplitCalculator` — the UI never re-implements
-math (edges 8/9/10 surfaced with one-tap fixes; edge 1 "who absorbed the cent"
-shown). Draft survival via `SavedStateHandle` (edge 61). Tests: ViewModel state
-machines per mode, remaining-indicator invariants (property-checked against
-SplitCalculator), Compose tests per editor.
+1. Delete group with typed confirmation and a pre-delete backup (FR-G4, edge 18).
+2. Member detail: paid, owed, net, and the expenses behind them (FR-S5).
+3. Remind: a shareable text summary of who owes whom (FR-S6).
+4. Storage usage and "clear receipt images" (FR-T5); About credits (FR-T6).
+5. Language, default split mode and default group settings (FR-T1, FR-T2).
+6. Undo snackbar on delete, haptics on save and settle (SPEC §4.2).
+7. Storage-full and migration-failure paths with injected faults (edges 63, 64).
+8. 100-member group: virtualized pickers and the warning above 50 (edge 17).
+9. Quality passes with evidence: TalkBack, 200% font, RTL, tablet, API 26.
+10. Screenshot tests for every screen; the on-device flows in CI.
 
-## Stage 3d — balances, settle up, search/filter, recurring, trash, settings
-
-Balances tab (raw pairwise + simplify toggle, off by default, one-line
-explanation — FR-S2), settle-up flow with suggested transfers, partial
-settlements, member detail (paid/owed/net + drill-down), search & filter,
-recurring expenses (WorkManager local notification, confirm-first — FR-E7),
-30-day trash with restore, settings (theme, dynamic color, default currency,
-app lock hook, about + "Dibs collects nothing"). Edge cases 14–18, 61–63, 66–67
-get tests here; TalkBack/200%/dark/tablet passes across all screens close M3.
-
-## Stage gates
-
-Each stage: tests written first; `./gradlew check` green; `:app:installDebug`
-on the connected device + launch; PROGRESS.md updated; stop for review.
+Each item: failing test first, `docs/requirements.yaml` updated in the same
+commit, `./gradlew check` green, and the matching on-device flow added to
+`scripts/e2e` where the flow crosses a screen boundary.

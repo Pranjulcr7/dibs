@@ -5,10 +5,10 @@
 [![CI](https://github.com/Pranjulcr7/dibs/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranjulcr7/dibs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
-> 🚧 **Pre-release.** The app is functional — groups, all six split modes,
-> balances, settle-up, Splitwise import, encrypted backup — but device-to-device
-> sync and receipt scanning are still in progress and there is no tagged release
-> yet. See [PROGRESS.md](PROGRESS.md) for where things stand.
+> 🚧 **Pre-release.** Everything below works on Android today and is tested,
+> including sharing a group between phones with no server. There is no tagged
+> release or store listing yet. [ROADMAP.md](ROADMAP.md) is the plan from here
+> to 1.0, iOS, and an MCP server; [PROGRESS.md](PROGRESS.md) is the dated log.
 
 | Expenses | Balances | Settle up |
 |---|---|---|
@@ -37,18 +37,45 @@ Working today:
   into (who owes whom, not just nets)
 - Six split modes: equal, exact amounts, percentages, shares, +/- adjustment, and
   itemized with proportional tax and tip — every split sums to the total exactly
-- Multiple payers per expense, partial settlements, write-offs, settle-up
+- Several payers on one expense, partial settlements, write-offs, settle-up
   suggestions with an opt-in "simplify debts" view
 - Search, categories, recurring-expense reminders, 30-day trash, archive
 - Splitwise CSV import (with preview and duplicate protection) and CSV export
+- Receipt scanning, fully on-device, with a review step before anything is
+  saved. Typing the items in is always one tap away
+- Sharing a group between phones with no server — see below
 - Encrypted `.dibs` backups: one passphrase-protected file you can keep anywhere
 - Biometric app lock, screenshot blocking — both opt-in
 
-Still in progress:
+Not built yet (see [ROADMAP.md](ROADMAP.md)):
 
-- Receipt scanning — fully on-device, manual entry always first-class
-- Serverless sync via QR invite and encrypted bundles over any channel you
-  already use
+- A store release, translations, and an iOS app
+- Sync that does not need a file handed over each time
+- An MCP server, so an AI assistant can read and add expenses
+
+## Sharing a group
+
+There is no account and no server, so phones exchange small encrypted files
+through whatever you already use — WhatsApp, Signal, email, AirDrop-style
+sharing.
+
+1. **Invite.** In the group, open *Members → Invite* and tap *Send invite*.
+   That sends one file holding the invite and the group's expenses.
+2. **Join.** The other person opens the file with Dibs, picks which member
+   they are (or adds themselves), and taps *Join*. Standing together? They can
+   scan the QR code instead.
+3. **Tell the group.** Dibs asks the new member to send one file back, so the
+   others see them. Nothing is ever sent automatically.
+4. **Stay in step.** Whoever adds something taps *Share updates* and sends the
+   file. Opening it on another phone merges it in. The group header says when
+   there are changes you have not shared.
+
+Two people can add, edit, and even delete the same expense while offline; once
+the files have gone both ways, both phones show exactly the same thing. An
+invite works once and lasts seven days; it can be cancelled, and a group can
+require that new members are approved. Whoever holds an invite can read the
+group, so send it only to the person joining. [SECURITY.md](SECURITY.md) has
+the details and the limits.
 
 ## How it works
 
@@ -77,6 +104,11 @@ Run the tests (the domain core needs no emulator):
 ```bash
 ./gradlew check
 ```
+
+`check` also verifies [docs/requirements.yaml](docs/requirements.yaml), which
+maps every requirement in the spec to the tests that cover it. To drive the
+installed app end to end on two emulators, including an invite going from one
+phone to the other, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Contributing
 
