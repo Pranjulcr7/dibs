@@ -479,6 +479,20 @@ intent filters and file provider, and can move a file from one phone to the
 other — which an instrumented test inside one app process cannot. It is
 slower than Compose tests and is not in CI yet.
 
+### D52. INTERNET is stripped in the manifest and checked in the build
+
+ML Kit's transitive `com.google.android.datatransport` merges
+`android.permission.INTERNET` into the `full` flavor's manifest. Options were:
+drop ML Kit from `full` (losing bundled receipt reading), remove the uploader's
+services from the manifest (risks a crash when ML Kit schedules an upload job
+against a missing component), or strip only the permission. The permission is
+the enforcement point the OS provides, and removing it is the one change that
+holds whatever a library does: sockets fail, the uploader's own error handling
+absorbs it, and recognition — which is bundled — is unaffected (verified on an
+emulator: a receipt read correctly from the gallery on the stripped build).
+`verify<Variant>NoInternetPermission` makes it a build failure rather than a
+claim. P9's opt-in relay will have to change this check on purpose.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

@@ -14,6 +14,14 @@
   between group members' devices over channels you choose.
 
 The app works fully in airplane mode. That is not a fallback — it is the design.
+No build declares the Android `INTERNET` permission, so the operating system
+itself blocks network access; the build fails if that ever changes.
+
+The `full` build uses Google's ML Kit to read receipts on the device. ML Kit
+ships with a Google telemetry component; because the app has no network
+permission, that component cannot send anything. The `foss` build contains no
+Google code at all. See SECURITY.md for a correction about earlier source
+builds.
 
 If you find any network call in the source that contradicts this document,
 please report it as a critical bug.

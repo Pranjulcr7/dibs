@@ -112,4 +112,17 @@ Known limits, stated plainly:
 
 - No data ever leaves the device except user-initiated backup files, invite
   files and encrypted update files.
-- No manifest in any build declares the `INTERNET` permission.
+- No build declares the `INTERNET` permission, so the operating system refuses
+  any network connection the app tries to open. This is enforced, not assumed:
+  `./gradlew check` inspects every variant's merged manifest and fails if the
+  permission appears.
+- **Correction (2026-11-25).** Between the commit that added ML Kit receipt
+  reading (`466117f`, 2026-08-18) and `1c55fb8`, the `full` build flavor *did*
+  declare `INTERNET`: ML Kit depends on Google's telemetry uploader
+  (`com.google.android.datatransport`), whose manifest requests it. No tagged
+  release or store build was ever made from those commits; anyone who built
+  and installed `full` from source in that window had an app that could have
+  sent ML Kit usage telemetry to Google. Expense data, receipts and keys were
+  never part of that telemetry. The `foss` flavor was never affected. The
+  uploader library is still linked in `full`; with the permission stripped it
+  cannot connect.

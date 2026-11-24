@@ -52,8 +52,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deterministically in the ledger fold, with golden vectors and convergence
   race tests. Join/invite UI arrives with sync (M6).
 
+### Security
+
+- The `full` build flavor declared the `INTERNET` permission, brought in by
+  ML Kit's bundled Google telemetry uploader, contrary to everything this
+  project says about itself. It is now removed from the merged manifest and
+  the build fails if it reappears. No release was ever published with it; see
+  SECURITY.md.
+
 ### Fixed
 
+- After creating a first group there was no way to create, import, or join
+  another one.
 - Editing an expense that had several payers (for example one imported from
   Splitwise) rewrote it to a single payer and changed everyone's balance.
 - A group's status line loaded the whole history on every update, undoing the
