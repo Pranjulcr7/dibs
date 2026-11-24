@@ -1,6 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Dibs makes no network calls (CLAUDE.md invariant 3). This line strips
+        INTERNET from the merged manifest no matter which dependency asks for
+        it: ML Kit pulls in Google's telemetry uploader
+        (com.google.android.datatransport), whose manifest requests it. Without
+        the permission the OS refuses every socket this process opens, so the
+        uploader can never send anything. Text recognition itself is bundled
+        and runs on the device. `verify*NoInternetPermission` (in `check`)
+        fails the build if this stops working. Do not remove.
+    -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
 
     <!-- Only for FR-E7 recurring-expense reminders; requested at rule creation. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
