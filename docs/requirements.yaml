@@ -300,13 +300,15 @@
 
 - id: FR-Y1
   title: Manual sync tier - join by QR or dibs link, share updates as an encrypted bundle
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given a claimed creator when inviting then a signed single-use invite is appended
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an invite file then the joiner sees the group, claims their name, and both phones converge
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a bare link then the joiner is asked for updates, and the updates complete the join
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a member's bundle then the joiner folds to byte-identical state
-  note: "Invite, join and bundle share/import are tested at ViewModel level with two in-memory phones. The join screen is not reachable from app navigation (no route; MainActivity does not read the dibs://join intent). QR decoding is unit-tested (QrDecoderTest) but the QR scan screen is not wired to the join screen or navigation."
+    - scripts/e2e/flows_sync.py :: def f22(
+    - scripts/e2e/flows_sync.py :: def f22b(
+  note: "Verified with simulated phones and on two emulators. Not yet tried on two physical phones through a real chat app, and the QR scanner has never read a real code through a real camera."
 
 - id: FR-Y2
   title: Relay sync tier, opt-in per group with public relays
@@ -343,6 +345,7 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given an update when the store is reopened then the settings survive
     - app/src/test/kotlin/app/dibs/MainViewModelTest.kt :: given settings not yet loaded then the state starts as Loading and resolves to Ready
+    - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsScreenTest.kt :: given the theme choices then picking one reports it
   note: "Theme and dynamic colour are tested; a language setting does not exist."
 
 - id: FR-T2
@@ -374,9 +377,11 @@
 
 - id: FR-T6
   title: About screen with version, license, source link, credits, and a collects-nothing statement
-  status: open
-  tests: []
-  note: "Implemented in Settings (version, licence and source line, collects-nothing statement), untested; contributor credits do not exist."
+  status: partial
+  tests:
+    - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsScreenTest.kt :: given About then the version, the licence, and the collects-nothing statement are shown
+    - scripts/e2e/run.py :: def f26(
+  note: "Version, licence line and the collects-nothing statement are shown and tested. There is no tappable source link and no contributor credits."
 
 - id: NFR-1
   title: Cold start to interactive group list under 800 ms on a mid-range 2022 device
@@ -427,9 +432,10 @@
 
 - id: NFR-8
   title: All features work offline except relay sync
-  status: open
-  tests: []
-  note: "No test and no recorded airplane-mode run. No manifest declares INTERNET, which is checkable by inspection only."
+  status: covered
+  tests:
+    - scripts/e2e/run.py :: def f30(
+  note: "The airplane-mode flow runs on an emulator, and verify<Variant>NoInternetPermission in check fails the build if any merged manifest declares INTERNET (D52). The full flavor did declare it from 2026-08-18 until 2026-11-25; see SECURITY.md."
 
 - id: NFR-9
   title: Domain-layer coverage above 90% line and 100% of split and settlement maths
@@ -439,9 +445,11 @@
 
 - id: NFR-10
   title: Accessibility - TalkBack labels, 4.5 to 1 contrast, 200% font, 48 dp touch targets
-  status: open
-  tests: []
-  note: "No accessibility test and no recorded check."
+  status: partial
+  tests:
+    - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsScreenTest.kt :: given a switch row then tapping its label toggles it and it reports its state as one control
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/JoinScreenTest.kt :: given members to claim then picking one and joining claims exactly that member
+  note: "Switch and radio rows are single labelled controls with 48dp targets, tested. There is still no TalkBack walk, no contrast audit and no automated accessibility scan of every screen."
 
 - id: NFR-11
   title: Data at rest uses SQLCipher with the key in Android Keystore and allowBackup false
@@ -457,7 +465,7 @@
   title: No foreground services, wakelocks, or periodic polling when sync is off
   status: open
   tests: []
-  note: "Implemented by design (WorkManager only; no service or wakelock declared), untested."
+  note: "WorkManager only; the app declares no service of its own. The merged manifest carries WAKE_LOCK, FOREGROUND_SERVICE and RECEIVE_BOOT_COMPLETED from the WorkManager library. Untested."
 
 - id: NFR-13
   title: Every string externalized, RTL layout correct, English first
@@ -742,9 +750,11 @@
 
 - id: edge-33
   title: Camera permission denied leaves gallery and manual entry available
-  status: manual-evidence
-  tests: []
-  note: "PROGRESS.md 2026-08-21 - gallery and type-it-in fallbacks seen on device (with permission granted). The denied state itself is implemented with no test and no recorded run."
+  status: covered
+  tests:
+    - scripts/e2e/run.py :: def f17(
+    - feature/scan/src/test/kotlin/app/dibs/feature/scan/QrDecoderTest.kt :: given a frame with no code then the result is null, not an exception
+  note: "The receipt scan flow denies the camera on an emulator and continues from the gallery. The QR scan screen offers the same way out but that path has no run."
 
 - id: edge-34
   title: Blurry, dark or glare image gets a pre-capture hint and post-capture retry advice
@@ -849,6 +859,7 @@
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/receipt/RuleBasedLayoutParserTest.kt :: given the same parsed content then fingerprints collide and different content does not
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given an expense already carrying this receipt's fingerprint then review warns
+    - scripts/e2e/run.py :: def f17(
   note: ""
 
 - id: edge-48
@@ -961,6 +972,7 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a process-death draft in SavedStateHandle then the editor restores it verbatim
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given the process dies between opening a link and receiving updates then the join resumes
     - scripts/e2e/run.py :: def f29(
+    - scripts/e2e/flows_sync.py :: def f22b(
   note: ""
 
 - id: edge-62
@@ -1084,13 +1096,14 @@
 
 - id: F01
   title: First run - three onboarding pages, skip, enter name, no permission asked
-  status: partial
+  status: covered
   tests:
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/onboarding/OnboardingScreenTest.kt :: given the user taps next twice then the name page appears and finishing passes the typed name
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/onboarding/OnboardingScreenTest.kt :: given the user skips then onboarding finishes with no name from any page
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/onboarding/OnboardingViewModelTest.kt :: given a name entered when onboarding completes then the name and completion flag persist
     - app/src/test/kotlin/app/dibs/MainViewModelTest.kt :: given onboarding completes while the app is open then the state updates without a restart
-  note: "No test that no permission is requested; no screenshot (L3) or end-to-end (L4) test."
+    - scripts/e2e/run.py :: def f01(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. No screenshot test."
 
 - id: F02
   title: Create group with name, emoji, colour, currency, and creator self-claim
@@ -1099,26 +1112,29 @@
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given create when the name is filled then it appends group metadata plus a self member
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given a blank group name then create does nothing
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given the create screen then create stays disabled until a name is typed
-  note: "The colour picker does not exist; no end-to-end test through the real database."
+    - scripts/e2e/run.py :: def f02(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. The colour picker does not exist."
 
 - id: F03
   title: Members - add, rename, deactivate, reactivate, remove, duplicate-name badge
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given member actions then add, rename, deactivate, and reactivate reach the ledger
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given members then rows mark self, flag duplicate names, and sort active before inactive
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsScreensComposeTest.kt :: given members then self chip, duplicate hint, and deactivated section render
-  note: "The duplicate-name hint is not asserted in Compose and the Remove menu item has no Compose test; no screenshot test."
+    - scripts/e2e/run.py :: def f03(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. No screenshot test."
 
 - id: F04
   title: Add an equal-split expense in three taps, under five seconds
-  status: partial
+  status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a valid equal split when saved then the folded expense matches the preview allocations exactly
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a new expense then the amount field starts focused so typing can begin at once
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given a ready split with a blank description then the hint says why save is disabled
-  note: "Tap count and timing are on-device evidence only (PROGRESS.md 2026-08-24); no end-to-end test through the real database."
+    - scripts/e2e/run.py :: def f04(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. The under-5-seconds figure is from a physical phone (PROGRESS.md 2026-08-24); the emulator run confirms the three-tap path only."
 
 - id: F05
   title: Non-equal split modes with live remaining bar, blocked saves, one-tap fix, one-cent note
@@ -1128,42 +1144,47 @@
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given percentages under 100 then the shortfall shown equals the domain allocator's shortfall
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given exact mode with a partial assignment then the bar shows the domain remaining
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorScreenTest.kt :: given an equal ten-dollar split of three cents remainder then the bar goes ready
-  note: "Shares and adjustment modes have no editor test; the one-tap fix does not exist; the all-zero-shares message is not asserted; no screenshot test."
+    - scripts/e2e/run.py :: def f05(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Shares and adjustment modes have no editor test; the one-tap fix for a one-cent shortfall does not exist."
 
 - id: F06
   title: Multi-payer expense
-  status: partial
+  status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/BalancesTest.kt :: given multiple payers on one expense when netted then each payer is credited their contribution
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given several payers entered then the saved expense records each payment and they sum to the total
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given payments that do not add up to the total then save is blocked and nothing is written
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given an expense with two payers when only the description is edited then who paid what is untouched
-  note: "Tested at ViewModel level. No Compose test of the several-payers fields and no on-device flow yet."
+    - scripts/e2e/run.py :: def f06(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25."
 
 - id: F07
   title: Edit an expense, view history, see the edited-on-another-device note
-  status: partial
+  status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given edit mode when only the description changes then the edit op carries only the description
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a percent expense when reopened then it prefills as exact amounts with the stored truth
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ProjectorTest.kt :: given concurrent edits then the history lists both ops with their device ids
-  note: "The history sheet and the from-another-device note are untested in Compose; no end-to-end test."
+    - scripts/e2e/run.py :: def f07(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. The from-another-device note is asserted only at ViewModel level."
 
 - id: F08
   title: Delete, trash, restore, hidden after 30 days
-  status: partial
+  status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given delete then the expense is tombstoned, recoverable from trash
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion then trash shows the days remaining and restore brings the expense back
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given a deletion older than 30 days then the trash no longer offers it
-  note: "The trash screen has no Compose test; no end-to-end test through the real database."
+    - scripts/e2e/run.py :: def f08(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Includes Undo straight after deleting. The 30-day hiding is not exercised."
 
 - id: F09
   title: Duplicate an expense
-  status: partial
+  status: covered
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given duplicateOf then the editor prefills from the source but saves a brand-new expense
-  note: "The Duplicate row action in the expense list and its navigation are untested."
+    - scripts/e2e/run.py :: def f09(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25."
 
 - id: F10
   title: Recurring rule with notification, prefilled editor, explicit confirm, never auto-create
@@ -1179,49 +1200,55 @@
   status: partial
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TrashAndFilterTest.kt :: given text, member, and category filters then only matching expenses remain
-  note: "Date-range and amount filters do not exist; the search UI has no Compose or screenshot test."
+    - scripts/e2e/run.py :: def f11(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Text search only; date-range and amount filters do not exist."
 
 - id: F12
   title: Balances - pairwise, simplify toggle with explanation, member detail drill-down
-  status: partial
+  status: covered
   tests:
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/PairwiseBalancesTest.kt :: given a single-payer expense then each participant directly owes the payer exactly their share
     - core/domain/src/test/kotlin/app/dibs/core/domain/balance/PairwiseBalancesTest.kt :: given 2000 random multi-payer ledgers then every member's pairwise net equals their overall net balance
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the balances tab then pairwise debts show and the simplify toggle swaps the view
-  note: "Member detail drill-down does not exist; no screenshot test."
+    - scripts/e2e/run.py :: def f12(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Includes the member detail drill-down. No screenshot test."
 
 - id: F13
   title: Settle up - suggested, manual, partial, write-off, history
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given the settle tab then the suggested transfer is listed with a record button
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a recorded partial settlement then balances shrink and history lists the payment
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a write-off then the pair disappears and the history labels it as written off
     - core/domain/src/test/kotlin/app/dibs/core/domain/settle/SettlementTest.kt :: given 10000 random zero-sum balances when transfers applied then every member's balance reaches exactly zero
-  note: "The record-payment dialog and manual payment entry are untested (dialogs do not idle under Robolectric); the payments history list is not asserted in Compose; no end-to-end test."
+    - scripts/e2e/run.py :: def f13(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Write-off is tested at ViewModel level only."
 
 - id: F14
   title: Remind with a shareable text summary
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given debts in two currencies then the summary lists each debt with its own currency and exact amount
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given everything paid back then the summary says the group is settled
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given the share action then it is a plain-text send carrying the summary and nothing else
-  note: "Summary text and share intent are tested; the menu entry is not exercised by a Compose test or an on-device flow."
+    - scripts/e2e/run.py :: def f14(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25."
 
 - id: F15
   title: Just-this-once ad-hoc split
-  status: partial
+  status: covered
   tests:
     - app/src/test/kotlin/app/dibs/QuickAddViewModelTest.kt :: given just this once then a hidden group is created with me in it, claimed, in my default currency
-  note: "The ad-hoc group and the picker are tested at ViewModel level; the bottom sheet itself is exercised only by the on-device flow."
+    - scripts/e2e/run.py :: def f15(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25."
 
 - id: F16
   title: Archive and unarchive, delete group with typed confirmation and pre-delete backup
   status: partial
   tests:
     - core/data/src/test/kotlin/app/dibs/core/data/ledger/GroupStateCodecTest.kt :: given a state exercising every branch then the codec roundtrips it losslessly
-  note: "Only the codec roundtrip touches the archived flag; archive and unarchive UI are implemented, untested. Delete group with typed confirmation and pre-delete backup does not exist."
+    - scripts/e2e/run.py :: def f16(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Archive and unarchive pass on device. Delete group with typed confirmation and pre-delete backup does not exist."
 
 - id: F17
   title: Scan - capture, review, itemized editor, save, gallery, multi-frame, denial, duplicate, timeout, foss
@@ -1231,7 +1258,8 @@
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/ScanViewModelTest.kt :: given an expense already carrying this receipt's fingerprint then review warns
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a reviewed receipt handoff then the editor opens itemized with items, tax, tip, and the photo ref
     - core/ocr/src/test/kotlin/app/dibs/core/ocr/MlKitReceiptParserTest.kt :: given recognition exceeding the ten second budget then it times out instead of hanging
-  note: "Camera capture, gallery pick, the permission-denied state, the multi-frame UI and the foss NoOpReceiptParser path have no automated test (camera and foss smoke runs are on-device, PROGRESS.md 2026-08-21 to 2026-08-24); no end-to-end test."
+    - scripts/e2e/run.py :: def f17(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Gallery path with the camera denied, review, itemize, save and the duplicate warning pass on an emulator with a generated receipt. A real camera, multi-frame capture and the foss build have no automated run."
 
 - id: F18
   title: Splitwise import - mapping, preview, skipped rows, checksum, re-import refused, 5,000 rows, non-English
@@ -1262,53 +1290,58 @@
 
 - id: F21
   title: Invite - create, show QR, share link
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given a claimed creator when inviting then a signed single-use invite is appended and the link carries the group key
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given two invites for one group then both links carry the same group key
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given someone else has claimed and we have not when inviting then nothing is written
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/HandlesAndLinkTest.kt :: given an invite link when encoded and parsed then it round-trips
-  note: "QR rendering (QrCode.kt), the invite dialog and the share-link action are untested; no screenshot test."
+    - scripts/e2e/flows_sync.py :: def f21(
+  note: "Run end to end on two emulators, PROGRESS.md 2026-11-25."
 
 - id: F22
   title: Join - open link or scan QR, preview, claim an existing member or create one
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an invite file then the joiner sees the group, claims their name, and both phones converge
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a bare link then the joiner is asked for updates, and the updates complete the join as a new member
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given the same invite opened again after joining then the joiner is simply taken to their group
     - feature/scan/src/test/kotlin/app/dibs/feature/scan/QrDecoderTest.kt :: given a frame showing an invite code then the exact link text is returned
-  note: "Tested at ViewModel level with two in-memory phones over the real fold and SyncService, plus JoinCheckTest in the domain. JoinScreen has no Compose test and is not reachable from app navigation (no route; MainActivity ignores the dibs://join intent); the QR scan screen exists but is not wired in and only its decoder is tested; no two-emulator or two-phone run."
+    - scripts/e2e/flows_sync.py :: def f22(
+  note: "Run end to end on two emulators, PROGRESS.md 2026-11-25. Joining by a scanned QR code is wired in but has never been run against a real camera; two physical phones through a real chat app have not been tried."
 
 - id: F23
   title: Share and import updates, every ImportOutcome message, some-changes-may-be-missing
-  status: partial
+  status: covered
   tests:
     - core/sync/src/test/kotlin/app/dibs/core/sync/SyncServiceTest.kt :: given a member's bundle then the joiner folds to byte-identical state and both chips settle
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given an update file opened from outside the app then it lands in the right group and says what arrived
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/SyncSharingTest.kt :: given every import outcome then each has its own non-empty message
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/MembersViewModelTest.kt :: given a group never shared then the sync chip stays quiet, and after a share it tracks new changes
-  note: "The share-sheet and file-pick wiring in GroupDetailScreen are untested; opening an update file from outside the app is ViewModel-only (no file association in the manifest, join screen unreachable); no end-to-end test."
+    - scripts/e2e/flows_sync.py :: def f23(
+  note: "Run end to end on two emulators, PROGRESS.md 2026-11-25. The in-group Import updates picker is covered at ViewModel level only; the on-device run opens the file with Dibs."
 
 - id: F24
   title: Two devices offline - concurrent edits, delete against edit, double settlement, convergence
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given both phones editing the same expense offline then they converge and both edits stay in history
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given one phone deletes while the other edits then delete wins and the edit survives a restore
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given both phones recording the same repayment offline then both are kept and the overpayment shows
     - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/ConvergenceSimulationTest.kt :: given 500 random interleaved op streams with drops, duplicates, reordering
-  note: "Covered with two in-memory phones over the real SyncService, and on two emulators (scripts/e2e F24) once that run is recorded in PROGRESS.md."
+    - scripts/e2e/flows_sync.py :: def f24(
+  note: "Run end to end on two emulators, PROGRESS.md 2026-11-25."
 
 - id: F25
   title: Invite lifecycle - expiry, revoke, reuse refused, approval mode, joined-via-your-invite with remove
-  status: partial
+  status: covered
   tests:
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a revoked invite then the joiner is told it was cancelled and nothing is written
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given approval mode then the joiner waits, the inviter approves, and both phones agree
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given someone joined via my invite then I can remove them while they have no history, never after
     - feature/groups/src/test/kotlin/app/dibs/feature/groups/TwoDeviceJoinTest.kt :: given a single-use invite a third person already used then the second joiner is told it is used up
-  note: "ViewModel level only (expiry is covered by a further TwoDeviceJoinTest case). The approve, remove and cancel-invite controls in MembersScreen have no Compose test, the joiner side is unreachable from app navigation, and there is no two-emulator test."
+    - scripts/e2e/flows_sync.py :: def f25(
+  note: "Run end to end on two emulators, PROGRESS.md 2026-11-25. Expiry, cancellation, reuse and the single-use race are covered with simulated phones only."
 
 - id: F26
   title: Settings - theme, dynamic colour, language, display name, default currency, split mode, group
@@ -1317,7 +1350,8 @@
     - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsViewModelTest.kt :: given every settings action then each persists its field and nothing else
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given an update when the store is reopened then the settings survive
     - core/data/src/test/kotlin/app/dibs/core/data/settings/DataStoreSettingsStoreTest.kt :: given a corrupted settings file when read then it recovers to defaults instead of crashing
-  note: "Language, default split mode and default group do not exist; the Settings screen has no Compose or screenshot test."
+    - scripts/e2e/run.py :: def f26(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Theme, name, a labelled switch and About pass on device. Language, default split mode and default group do not exist."
 
 - id: F27
   title: App lock and screenshot blocking
@@ -1328,20 +1362,23 @@
 
 - id: F28
   title: Storage usage, clear receipt images, About
-  status: open
-  tests: []
-  note: "Storage usage and clear receipt images do not exist; About is implemented, untested."
+  status: partial
+  tests:
+    - feature/settings/src/test/kotlin/app/dibs/feature/settings/SettingsScreenTest.kt :: given About then the version, the licence, and the collects-nothing statement are shown
+  note: "About is tested. Storage usage and clear receipt images do not exist."
 
 - id: F29
   title: Lifecycle - process death, rotation, 200% font, dark, RTL, tablet, TalkBack, API 26
   status: partial
   tests:
     - feature/expense/src/test/kotlin/app/dibs/feature/expense/editor/ExpenseEditorViewModelTest.kt :: given a process-death draft in SavedStateHandle then the editor restores it verbatim
-  note: "Only process death is tested. Rotation, 200% font, dark, RTL, tablet and landscape, TalkBack and API 26 have no test and no recorded check."
+    - scripts/e2e/run.py :: def f29(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Rotation, 200% font, dark mode and process death pass on an emulator with a draft open. RTL, tablet, TalkBack and API 26 have no run."
 
 - id: F30
   title: Failure paths - storage full, migration failure with automatic restore, airplane mode
   status: partial
   tests:
     - core/data/src/test/kotlin/app/dibs/core/data/db/DatabaseBackupManagerTest.kt :: given a version bump when opening then the database file is copied before migration and the version updated
-  note: "Only the pre-migration backup copy is tested. Storage-full handling and automatic restore after a failed migration do not exist; no airplane-mode test or recorded run."
+    - scripts/e2e/run.py :: def f30(
+  note: "Run end to end on an emulator, PROGRESS.md 2026-11-25. Airplane mode and the absence of the INTERNET permission pass on an emulator. Storage-full handling and automatic restore after a failed migration do not exist."

@@ -15,8 +15,8 @@ does not repeat them.
 |---|---|
 | P0 Get back to green | **Done.** |
 | P1 Verification harness | **Done, differently.** `docs/requirements.yaml` with a build check (D50); black-box flows over adb on two emulators instead of instrumented tests (D51). Not done: screenshot tests, on-device flows in CI |
-| P2 Finish sync tier 1 | **Feature-complete; verified on two emulators.** Left: one pass on two physical phones through a real chat app, a real camera scanning a real code, clock-skew warning, member merge. See `PLAN.md` |
-| P3 Close SPEC gaps | **Started.** Done early: several payers (FR-E3), member detail (FR-S5), share who owes whom (FR-S6), duplicate-settlement hint (edge 32), newer-version warning (edge 28), undo and haptics (SPEC §4.2). The rest is the `open` and `partial` list in `docs/requirements.yaml` |
+| P2 Finish sync tier 1 | **Feature-complete; all two-phone flows pass on two emulators.** Left: one pass on two physical phones through a real chat app, a real camera scanning a real code, clock-skew warning, member merge. See `PLAN.md` |
+| P3 Close SPEC gaps | **Started.** Done early: several payers (FR-E3), member detail (FR-S5), share who owes whom (FR-S6), duplicate-settlement hint (edge 32), newer-version warning (edge 28), undo and haptics (SPEC §4.2), version in About (FR-T6). The rest is the `open` and `partial` list in `docs/requirements.yaml` |
 | P4 – P10 | Not started |
 
 §1 below is the snapshot from 2026-11-24, before any of this work; it is kept

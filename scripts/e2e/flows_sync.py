@@ -182,7 +182,8 @@ def f23(a: Device, b: Device) -> None:
     alice_creates_group(a, "Goa trip")
     bob_joins(a, b, "Goa trip", alice_makes_invite(a))
     add_expense(a, "10", "Beer")
-    a.expect("change to share")
+    # Two things Alice holds that she has not sent on: Bob's join, and the beer.
+    a.expect("2 changes to share")
     updates = share_updates(a, "Goa trip")
     a.expect("Shared · up to date")
     open_updates(b, updates)

@@ -466,6 +466,17 @@ def pick_receipt_image(device: Device) -> None:
     device.expect("1 frame captured", timeout=20)
 
 
+def deny_camera(device: Device) -> None:
+    """Refuses the camera permission if the system asks; the dialog can take a moment to appear."""
+    deadline = time.time() + 6
+    while time.time() < deadline:
+        if device.tap_if_present("Don’t allow"):
+            return
+        if device.has("Pick from gallery"):
+            return
+        time.sleep(0.4)
+
+
 @flow("F17", "Scan a receipt from the gallery with the camera denied; itemize it; scanning it again warns")
 def f17(a: Device, b: Device) -> None:
     push_receipt_image(a)
@@ -478,7 +489,7 @@ def f17(a: Device, b: Device) -> None:
     a.tap("More actions")
     a.tap("Scan receipt")
     # Edge 33: a denied camera is never a dead end.
-    a.tap_if_present("Don’t allow")
+    deny_camera(a)
     a.expect("Camera is off — no problem.", "Pick from gallery", "Type it in instead")
     pick_receipt_image(a)
     a.tap("Read receipt")
@@ -489,12 +500,12 @@ def f17(a: Device, b: Device) -> None:
     a.expect("New expense", "$13.77", "Assign every item to someone")
     type_into(a, "What was it for?", "Cafe run")
     a.hide_keyboard()
-    # Payer chips come first, then one Alice/Bob pair per item.
-    a.tap("Alice", exact=True, index=1)   # Latte → Alice
-    a.tap("Bob", exact=True, index=2)     # Bagel → Bob
+    # Each item row has its own Alice/Bob chips directly beneath it.
+    a.tap_below("Latte", "Alice")
     a.scroll_down()
-    a.tap_last("Alice")                   # Cookie → shared
-    a.tap_last("Bob")
+    a.tap_below("Bagel", "Bob")
+    a.tap_below("Cookie", "Alice")        # the cookie is shared
+    a.tap_below("Cookie", "Bob")
     a.expect("Total from items: $13.77")
     a.tap("Save expense")
     # Alice paid 13.77. Bob: bagel 3.25 + half the cookie 2.50 = 5.75 of 12.75,
@@ -504,6 +515,7 @@ def f17(a: Device, b: Device) -> None:
     # Edge 47: the same paper scanned twice is noticed.
     a.tap("More actions")
     a.tap("Scan receipt")
+    deny_camera(a)  # Android asks once more before treating the refusal as final
     pick_receipt_image(a)
     a.tap("Read receipt")
     a.expect("This looks identical to a receipt already in the group", timeout=30)

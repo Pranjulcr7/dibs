@@ -26,3 +26,7 @@ model/data/
 # Stray local tooling state
 ~/
 build-logic/.kotlin/
+
+# Python caches from scripts/
+__pycache__/
+*.pyc

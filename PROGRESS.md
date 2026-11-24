@@ -1,5 +1,109 @@
 # PROGRESS
 
+## 2026-11-25 — P0 to P2 of the ROADMAP: sync works end to end; every flow run on device
+
+Branch `roadmap/p0-green-tree`. `./gradlew check` green: **717 test results,
+0 failures** (same counting as the 512 at `b756065`: results summed across
+build variants), plus ktlint, detekt, lint, domain purity, coverage, and two
+new checks described below. Both flavors assemble.
+
+### What shipped
+
+- **P0, back to green.** The uncommitted M6 work is finished and committed.
+  A status line was loading and decoding the whole op log on every update,
+  undoing the cold-open work (D40); op and pending counts are now COUNT
+  queries, pinned by a repository test.
+- **P2, sync tier 1 (old M6).**
+  - *Invite* by QR code or by one file that carries the invite and the
+    group's data (D42), so joining is one action.
+  - *Join* from that file, a scanned code (zxing, both flavors, D47), a pasted
+    or tapped `dibs://join` link, or text shared to Dibs. The joiner picks a
+    name-only member or adds themselves; the signed claim is confirmed against
+    the fold (D43). A join in progress survives the app being killed.
+  - *Share and open updates*; every outcome has its own message; the group
+    header shows "n changes to share" / "up to date".
+  - *Membership*: cancel an invite, approval mode, approve, remove a member
+    with no history, "joined with your invite".
+  - Files opened from outside are read with a 24 MB cap (D45).
+- **Pulled forward from P3:** several payers on one expense (FR-E3), member
+  detail (FR-S5), "Share who owes whom" (FR-S6), duplicate-repayment hint
+  (edge 32), newer-version warning (edge 28), Undo after delete and haptics
+  (SPEC §4.2), the version in About (FR-T6).
+- **P1, verification**, in a different shape than planned:
+  - `docs/requirements.yaml`: all 166 ids (45 FR, 14 NFR, 77 edges, 30 flows)
+    with status and tests. `verifyTraceability` in `check` fails when a named
+    test disappears (D50). Now: 82 covered, 52 partial, 19 open,
+    7 manual-evidence, 6 superseded. It was 54 / 68 / 30 / 8 / 6 at first audit.
+  - `scripts/e2e`: the installed debug APK driven over adb on two emulators,
+    moving files between them the way a chat app would (D51).
+
+### Defects found by running the app, all fixed with a test
+
+| Found by | Defect |
+|---|---|
+| Airplane-mode flow | **The `full` flavor declared `INTERNET`**, merged in from ML Kit's Google telemetry uploader, since 2026-08-18. No release was published with it. Stripped in the manifest; `verify<Variant>NoInternetPermission` in `check` now fails the build if it returns (D52). SECURITY.md has the correction |
+| Checking a README claim | Editing an expense with several payers rewrote it to one payer and moved money between members. Every Splitwise import with two creditors was exposed |
+| One-off split flow | After the first group there was no way to create, import or join another |
+| Balances flow | "Simplify debts" and the settings switches were unlabeled: taps on the words did nothing, screen readers announced a nameless switch |
+| Members flow | Skipping the name at first run made you "You" to every other member |
+| Two-phone race test | A phone that lost a single-use invite race kept accepting expenses nobody would receive; it now says it is not a member (D49) |
+| Delete flow | The new Undo message cancelled itself before it was drawn |
+| Settings flow | The app version string existed and was displayed nowhere |
+| Unit test for the picker | Groups in the add-expense picker were ordered by emoji |
+| Receipt flow | "1 frames captured" and "items+ tax/tip" |
+| Requirements audit | Changes from a newer app version were skipped without a word, and no test ever exercised the skip |
+
+### On-device results
+
+Two `android-36` arm64 emulators, debug `full` build. 27 flows, all passing.
+The first group ran on `05541b9`, the second on `90b2b5a`; the only app
+changes between them are the Undo fix and the About version line.
+
+| Build | Flows that passed |
+|---|---|
+| `05541b9` | F01 first run · F01b first run skipped · F02 create group · F03 members · F04 three-tap expense · F05 split modes · F06 several payers · F07 edit and history · F09 duplicate · F11 search · F12 balances and member detail · F13 settle up · F14 share who owes whom · F15 just this once · F16 archive · F29 rotation, 200% font, dark, process death · F30 airplane mode |
+| `90b2b5a` | F08 delete, Undo, trash, restore · F17 receipt from the gallery with the camera denied, itemized to the cent, duplicate warned · F26 settings and About · F21 invite · F22 join from an invite file · F22b join from a bare link, killed mid-join · F22c bad links and files · F23 share and open updates · F24 both phones change things offline and converge · F25 approval, approve, remove |
+
+Sync is additionally covered by `TwoDeviceJoinTest`: 21 scenarios across
+simulated phones over the real `SyncService`, including revoked, expired and
+used-up invites and a race for one invite, which the emulators did not run.
+
+### Not done, stated plainly
+
+- **Two physical phones.** M6's exit asks for it. Nothing here has gone
+  through a real chat app, and no real camera has scanned a real QR code or a
+  real receipt in this pass. Emulators cannot show how WhatsApp labels a
+  `.dibsinvite` file or whether "Open with Dibs" is offered for it.
+- **The foss flavor** was built and checked but not run on device this time.
+- **Flows with no on-device run:** F10 recurring reminder, F18 Splitwise
+  import, F19 CSV round trip, F20 backup and restore (system file pickers;
+  each has ViewModel and service tests), F27 app lock, F28 storage usage
+  (does not exist).
+- **The on-device flows are not in CI**, and there are no screenshot tests.
+- **Still open in P2:** clock-skew warning (edge 22), member merge (edge 26).
+- **Still open from the SPEC:** delete group, language and default-split
+  settings, storage usage, storage-full and migration-failure handling, the
+  100-member case, TalkBack, RTL, tablet and API 26 passes, release signing
+  and reproducible builds. `docs/requirements.yaml` lists all 19 open and 52
+  partial ids with what each is missing; `PLAN.md` orders the next ones.
+- **M5's exit criterion** (accuracy on 30 real photographed receipts) is still
+  unmet; the on-device receipt check uses a generated image and says nothing
+  about accuracy.
+
+### Decisions
+
+D42–D52 in DECISIONS.md. Two deviate from the ROADMAP as written: on-device
+flows are black-box over adb, not instrumented tests (D51), and edge 29 is a
+size cap, not streaming (D45). SPEC edges 29 and 74 were updated to match what
+is built.
+
+### Owner actions outstanding
+
+ROADMAP §2.2 and §8, unchanged: confirm the contact address in SECURITY.md,
+decide on developer accounts and Android developer verification, and approve
+the CLAUDE.md amendments before any iOS work. README links now point at
+`Pranjulcr7/dibs`, the repository that exists.
+
 ## 2026-08-24 — FOSS flavor: NFR-6 met at 9.7 MB
 
 The F-Droid build flavor decided and shipped (OPEN_SOURCE_SETUP §7). Two

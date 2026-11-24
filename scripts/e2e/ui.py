@@ -218,6 +218,29 @@ class Device:
         self.shell(f"input tap {x} {y}")
         time.sleep(0.5)
 
+    def tap_below(self, anchor: str, wanted: str) -> None:
+        """Taps the first `wanted` that sits below `anchor` — a chip belonging to a list row."""
+        deadline = time.time() + 12
+        while True:
+            nodes = self.nodes()
+            anchors = self._match(nodes, anchor, exact=True)
+            if anchors:
+                floor = anchors[0].center[1]
+                below = sorted(
+                    (n for n in self._match(nodes, wanted, exact=True) if n.center[1] > floor),
+                    key=lambda n: n.center[1],
+                )
+                if below:
+                    x, y = below[0].center
+                    self.shell(f"input tap {x} {y}")
+                    time.sleep(0.5)
+                    return
+            if time.time() > deadline:
+                raise StepFailed(
+                    f"[{self.name}] expected '{wanted}' below '{anchor}'; saw: {[n.label for n in nodes if n.label]}"
+                )
+            time.sleep(0.4)
+
     def tap_if_present(self, wanted: str) -> bool:
         if self.has(wanted):
             self.tap(wanted)
