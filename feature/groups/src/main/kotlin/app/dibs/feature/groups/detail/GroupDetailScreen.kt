@@ -148,6 +148,7 @@ fun GroupDetailRoute(
             }
         },
         onImportSync = { importSyncLauncher.launch(arrayOf("*/*")) },
+        onRemind = { uiState.state?.let { context.startActivity(BalanceSummary.shareIntent(context, it)) } },
         snackbarHostState = snackbarHostState,
     )
 }
@@ -171,6 +172,7 @@ fun GroupDetailScreen(
     onScanReceipt: () -> Unit = {},
     onShareSync: () -> Unit = {},
     onImportSync: () -> Unit = {},
+    onRemind: () -> Unit = {},
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val state = uiState.state ?: return
@@ -221,6 +223,13 @@ fun GroupDetailScreen(
                             onClick = {
                                 menuOpen = false
                                 onScanReceipt()
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.remind_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onRemind()
                             },
                         )
                         androidx.compose.material3.DropdownMenuItem(

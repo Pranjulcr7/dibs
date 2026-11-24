@@ -122,6 +122,10 @@
     <string name="import_confirm">Import</string>
     <string name="import_running">Importing — this can take a little while for big files.</string>
     <string name="import_back">Back</string>
+    <string name="remind_action">Share who owes whom</string>
+    <string name="remind_header">%1$s — who owes whom</string>
+    <string name="remind_line">%1$s owes %2$s %3$s</string>
+    <string name="remind_settled">%1$s: all settled up.</string>
     <string name="export_csv_action">Export CSV</string>
     <string name="invite_action">Invite</string>
     <string name="invite_title">Invite to this group</string>

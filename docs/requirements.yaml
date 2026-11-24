@@ -172,9 +172,12 @@
 
 - id: FR-S6
   title: Remind produces a shareable plain-text summary through the share sheet
-  status: open
-  tests: []
-  note: "Feature does not exist (no remind or share-summary action)."
+  status: covered
+  tests:
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given debts in two currencies then the summary lists each debt with its own currency and exact amount
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given everything paid back then the summary says the group is settled
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given the share action then it is a plain-text send carrying the summary and nothing else
+  note: "The menu item that launches it has no Compose test."
 
 - id: FR-R1
   title: Capture a receipt via CameraX with guide frame and stability hint, or pick from the gallery
@@ -1191,9 +1194,12 @@
 
 - id: F14
   title: Remind with a shareable text summary
-  status: open
-  tests: []
-  note: "Feature does not exist."
+  status: partial
+  tests:
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given debts in two currencies then the summary lists each debt with its own currency and exact amount
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given everything paid back then the summary says the group is settled
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/BalanceSummaryTest.kt :: given the share action then it is a plain-text send carrying the summary and nothing else
+  note: "Summary text and share intent are tested; the menu entry is not exercised by a Compose test or an on-device flow."
 
 - id: F15
   title: Just-this-once ad-hoc split
