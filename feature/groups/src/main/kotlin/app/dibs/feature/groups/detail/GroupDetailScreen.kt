@@ -51,6 +51,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -77,6 +79,8 @@ fun GroupDetailRoute(
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onOpenTrash: () -> Unit,
     onScanReceipt: () -> Unit,
+    deletedExpenseId: String? = null,
+    onDeletedShown: () -> Unit = {},
     viewModel: GroupDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -122,6 +126,21 @@ fun GroupDetailRoute(
             }
         }
     }
+    // SPEC §4.2: a reversible destructive action gets an Undo. The expense
+    // editor reports what it just moved to trash; this screen offers it back.
+    LaunchedEffect(deletedExpenseId) {
+        if (deletedExpenseId != null) {
+            onDeletedShown()
+            val result = snackbarHostState.showSnackbar(
+                message = context.getString(R.string.expense_deleted),
+                actionLabel = context.getString(R.string.expense_deleted_undo),
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.restoreExpense(app.dibs.core.domain.model.ExpenseId(deletedExpenseId))
+            }
+        }
+    }
+    val haptics = LocalHapticFeedback.current
     GroupDetailScreen(
         uiState = uiState,
         onBack = onBack,
@@ -130,7 +149,11 @@ fun GroupDetailRoute(
         onOpenExpense = onOpenExpense,
         onDuplicateExpense = onDuplicateExpense,
         onEditGroup = viewModel::editGroup,
-        onRecordSettlement = viewModel::recordSettlement,
+        onRecordSettlement = { from, to, amount, currency, kind ->
+            // SPEC §4.2: a confirming tick when a payment is recorded.
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.recordSettlement(from, to, amount, currency, kind)
+        },
         onOpenTrash = onOpenTrash,
         onSetArchived = viewModel::setArchived,
         onScanReceipt = onScanReceipt,

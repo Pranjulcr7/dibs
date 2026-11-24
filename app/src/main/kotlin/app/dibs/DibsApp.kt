@@ -49,6 +49,9 @@ import kotlinx.coroutines.launch
 /** Saved-state key the QR scan screen uses to return its result to the join screen. */
 private const val SCANNED_LINK = "scannedLink"
 
+/** Saved-state key the expense editor uses to tell the screen below what it just deleted. */
+private const val DELETED_EXPENSE = "deletedExpense"
+
 private enum class HomeTab(@StringRes val label: Int, val icon: ImageVector) {
     GROUPS(R.string.tab_groups, Icons.Filled.Home),
     ACTIVITY(R.string.tab_activity, Icons.AutoMirrored.Filled.List),
@@ -168,7 +171,10 @@ private fun DibsNavHost(initialRoute: String? = null, incoming: Incoming? = null
             arguments = listOf(navArgument("groupId") { type = NavType.StringType }),
         ) { entry ->
             val groupId = entry.arguments?.getString("groupId").orEmpty()
+            val deleted by entry.savedStateHandle.getStateFlow<String?>(DELETED_EXPENSE, null).collectAsState()
             GroupDetailRoute(
+                deletedExpenseId = deleted,
+                onDeletedShown = { entry.savedStateHandle[DELETED_EXPENSE] = null },
                 onBack = { navController.popBackStack() },
                 onOpenMembers = { navController.navigate("group/$groupId/members") },
                 onAddExpense = { navController.navigate("group/$groupId/expense/new") },
@@ -200,7 +206,14 @@ private fun DibsNavHost(initialRoute: String? = null, incoming: Incoming? = null
                 },
             ),
         ) {
-            ExpenseEditorRoute(onDone = { navController.popBackStack() })
+            ExpenseEditorRoute(
+                onDone = { navController.popBackStack() },
+                onDeleted = { expenseId ->
+                    // Hand the id to the screen underneath so it can offer Undo.
+                    navController.previousBackStackEntry?.savedStateHandle?.set(DELETED_EXPENSE, expenseId.value)
+                    navController.popBackStack()
+                },
+            )
         }
         composable(
             "group/{groupId}/scan",
@@ -229,7 +242,14 @@ private fun DibsNavHost(initialRoute: String? = null, incoming: Incoming? = null
                 navArgument("expenseId") { type = NavType.StringType },
             ),
         ) {
-            ExpenseEditorRoute(onDone = { navController.popBackStack() })
+            ExpenseEditorRoute(
+                onDone = { navController.popBackStack() },
+                onDeleted = { expenseId ->
+                    // Hand the id to the screen underneath so it can offer Undo.
+                    navController.previousBackStackEntry?.savedStateHandle?.set(DELETED_EXPENSE, expenseId.value)
+                    navController.popBackStack()
+                },
+            )
         }
         composable(
             "group/{groupId}/members",

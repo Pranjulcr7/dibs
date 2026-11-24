@@ -44,11 +44,14 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.dibs.core.domain.ledger.ExpenseEvent
+import app.dibs.core.domain.model.ExpenseId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.ui.money.MoneyFormatter
 import app.dibs.core.ui.theme.AmountTextStyles
@@ -72,15 +75,27 @@ private val Categories = listOf(
 )
 
 @Composable
-fun ExpenseEditorRoute(onDone: () -> Unit, viewModel: ExpenseEditorViewModel = hiltViewModel()) {
+fun ExpenseEditorRoute(
+    onDone: () -> Unit,
+    onDeleted: (ExpenseId) -> Unit = { onDone() },
+    viewModel: ExpenseEditorViewModel = hiltViewModel(),
+) {
     val uiState by viewModel.uiState.collectAsState()
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(Unit) {
         viewModel.saved.collect { onDone() }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.deleted.collect { onDeleted(it) }
     }
     ExpenseEditorScreen(
         uiState = uiState,
         onDraftChange = viewModel::updateDraft,
-        onSave = viewModel::save,
+        onSave = {
+            // SPEC §4.2: a confirming tick when an expense is saved.
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            viewModel.save()
+        },
         onDelete = viewModel::delete,
         onBack = onDone,
     )

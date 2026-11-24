@@ -212,6 +212,10 @@ class ExpenseEditorViewModel @Inject constructor(
     private val _saved = MutableSharedFlow<Unit>(replay = 1)
     val saved: SharedFlow<Unit> = _saved.asSharedFlow()
 
+    /** Emits the id of an expense this screen just moved to trash, so the caller can offer Undo. */
+    private val _deleted = MutableSharedFlow<ExpenseId>(replay = 1)
+    val deleted: SharedFlow<ExpenseId> = _deleted.asSharedFlow()
+
     val uiState: StateFlow<EditorUiState> =
         combine(
             draftFlow,
@@ -362,7 +366,7 @@ class ExpenseEditorViewModel @Inject constructor(
         val id = expenseId ?: return
         viewModelScope.launch {
             ledger.append(groupId, OpPayload.DeleteExpense(id))
-            _saved.emit(Unit)
+            _deleted.emit(id)
         }
     }
 

@@ -425,6 +425,8 @@ class ExpenseEditorViewModelTest {
 
         assertTrue(ledger.state(groupId).expenses.getValue(id).deleted)
         assertEquals(1, ledger.state(groupId).trash.size)
+        // The screen underneath is told exactly which expense to offer Undo for.
+        assertEquals(id, editVm.deleted.first())
     }
 
     @Test

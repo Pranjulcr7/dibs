@@ -112,6 +112,21 @@ class SettleTest {
     }
 
     @Test
+    fun `given an expense just moved to trash then undo restores it and the balance comes back`() = runViewModelTest {
+        seedDebt()
+        val expenseId = app.dibs.core.domain.model.ExpenseId("e1000000-0000-4000-8000-000000000000")
+        ledger.append(groupId, OpPayload.DeleteExpense(expenseId))
+        assertTrue(ledger.state(groupId).pairwiseDebts()[usd].orEmpty().isEmpty())
+
+        detailViewModel().restoreExpense(expenseId)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val state = ledger.state(groupId)
+        assertTrue(state.trash.isEmpty())
+        assertEquals(Money(500), state.balances().getValue(usd).first { it.memberId == alice }.net)
+    }
+
+    @Test
     fun `given a write-off then the pair disappears and the history labels it as written off`() = runViewModelTest {
         seedDebt()
         val viewModel = detailViewModel()

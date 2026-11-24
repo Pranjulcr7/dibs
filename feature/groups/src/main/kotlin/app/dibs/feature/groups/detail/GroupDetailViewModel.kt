@@ -10,6 +10,7 @@ import app.dibs.core.domain.ledger.EmojiEdit
 import app.dibs.core.domain.ledger.GroupState
 import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.ledger.OpPayload
+import app.dibs.core.domain.model.ExpenseId
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.model.SettlementId
@@ -160,6 +161,11 @@ class GroupDetailViewModel @Inject constructor(
                 ),
             )
         }
+    }
+
+    /** The Undo behind "Expense moved to trash" (SPEC §4.2): restoring is just another op. */
+    fun restoreExpense(expenseId: ExpenseId) {
+        viewModelScope.launch { ledger.append(groupId, OpPayload.RestoreExpense(expenseId)) }
     }
 
     /** FR-I2: the group's ledger as a Splitwise-shaped CSV (itself re-importable). */

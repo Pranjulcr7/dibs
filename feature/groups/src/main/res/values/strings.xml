@@ -101,6 +101,8 @@
     <string name="filter_all_categories">Any category</string>
     <string name="search_no_results_title">No matches</string>
     <string name="search_no_results_body">Try a different search or clear the filters.</string>
+    <string name="expense_deleted">Expense moved to trash</string>
+    <string name="expense_deleted_undo">Undo</string>
     <string name="trash_title">Trash</string>
     <string name="trash_action">Trash</string>
     <string name="trash_empty_title">Trash is empty</string>
