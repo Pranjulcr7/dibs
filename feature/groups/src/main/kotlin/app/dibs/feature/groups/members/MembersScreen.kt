@@ -104,8 +104,45 @@ fun MembersRoute(onBack: () -> Unit, viewModel: MembersViewModel = hiltViewModel
                 TextButton(onClick = { invite = null }) { Text(stringResource(R.string.invite_done)) }
             },
         )
+        InviteResult.NeedsName -> NameBeforeInviteDialog(
+            onConfirm = { name ->
+                scope.launch {
+                    viewModel.setMyName(name)
+                    invite = viewModel.createInvite()
+                }
+            },
+            onDismiss = { invite = null },
+        )
         null -> Unit
     }
+}
+
+@Composable
+private fun NameBeforeInviteDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.invite_needs_name_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.invite_needs_name_body))
+                Spacer(Modifier.height(Dimens.spacingSm))
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.join_your_name)) },
+                    singleLine = true,
+                    modifier = Modifier.testTag("invite-my-name"),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(name) }, enabled = name.isNotBlank()) {
+                Text(stringResource(R.string.join_continue))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.edit_group_cancel)) } },
+    )
 }
 
 /** The signed membership actions (SPEC §5.9), bundled so the screen stays previewable. */

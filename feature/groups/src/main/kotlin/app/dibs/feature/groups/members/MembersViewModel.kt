@@ -80,6 +80,14 @@ sealed interface InviteResult {
 
     /** Someone else claimed first and we hold no claim — an existing member must invite us. */
     data object SelfNotClaimed : InviteResult
+
+    /**
+     * Onboarding was skipped, so this device's member is still called by the
+     * placeholder ("You"). That is fine alone, but the moment the group is
+     * shared, everyone else would see a member literally named "You". Ask for
+     * a real name first; [MembersViewModel.setMyName] then renames the member.
+     */
+    data object NeedsName : InviteResult
 }
 
 @Suppress("TooManyFunctions") // one function per member and membership action on the screen
@@ -169,6 +177,7 @@ class MembersViewModel @Inject constructor(
      * are not, inviting is not ours to do: [InviteResult.SelfNotClaimed].
      */
     suspend fun createInvite(): InviteResult {
+        if (settingsStore.settings.first().displayName.isBlank()) return InviteResult.NeedsName
         val state = ledger.state(groupId)
         val keyPair = identity.keyPair()
         val claimedKeys = state.members.values.filterNot { it.removed }.mapNotNull { it.identityKey }
@@ -199,6 +208,20 @@ class MembersViewModel @Inject constructor(
             signature = HexBytes.fromHex(payload.signature),
         )
         return InviteResult.Ready(link, expiresAtMillis)
+    }
+
+    /**
+     * Records the user's name and renames their member in this group to it —
+     * the answer to [InviteResult.NeedsName]. Other groups keep whatever name
+     * they have; this is about the group being shared right now.
+     */
+    suspend fun setMyName(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isEmpty()) return
+        settingsStore.update { it.copy(displayName = trimmed) }
+        val selfId = settingsStore.settings.first().selfMembers[groupId] ?: return
+        val current = ledger.state(groupId).members[selfId] ?: return
+        if (current.name != trimmed) ledger.append(groupId, OpPayload.RenameMember(selfId, trimmed))
     }
 
     /**

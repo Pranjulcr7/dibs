@@ -73,7 +73,7 @@ class TwoDeviceJoinTest {
 
         fun members() = MembersViewModel(handle(), ledger, settings, keys, identity, sync).apply { wallClock = { now } }
 
-        fun detail() = GroupDetailViewModel(handle(), ledger, settings, sync, meta)
+        fun detail() = GroupDetailViewModel(handle(), ledger, settings, sync, meta, identity)
 
         fun join(saved: SavedStateHandle = SavedStateHandle()) =
             JoinViewModel(saved, ledger, settings, keys, identity, sync).apply { wallClock = { now } }
@@ -348,12 +348,23 @@ class TwoDeviceJoinTest {
         // The winner and the inviter agree byte for byte.
         val winner = if (bobIn) bob else carol
         assertArrayEquals(alice.bytes(), winner.bytes())
-        // KNOWN GAP (ROADMAP P2, open): the loser's update is refused as coming
-        // from a non-member, so the loser's own quarantined claim never reaches
-        // the others and the loser's phone does not converge with them. The
-        // loser is correctly not a member anywhere; telling them so is not built.
+        // The loser is a member nowhere — including on their own phone, which
+        // now says so plainly instead of letting them add expenses nobody will
+        // receive (their updates are refused as coming from a non-member).
         val loser = if (bobIn) carol else bob
         assertFalse(loser.identity.keyPair().publicKey in joinedKeys)
+        loser.detail().uiState.test {
+            var ui = awaitItem()
+            while (ui.state == null) ui = awaitItem()
+            assertTrue("the losing phone is told it is not a member", ui.notAMember)
+            cancelAndConsumeRemainingEvents()
+        }
+        winner.detail().uiState.test {
+            var ui = awaitItem()
+            while (ui.state == null) ui = awaitItem()
+            assertFalse(ui.notAMember)
+            cancelAndConsumeRemainingEvents()
+        }
     }
 
     @Test

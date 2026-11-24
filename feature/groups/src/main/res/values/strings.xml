@@ -148,6 +148,9 @@
     <string name="sync_rejected_tampered">Couldn\'t read this update — it\'s damaged, or it\'s for a different group.</string>
     <string name="sync_rejected_signature">This update failed its authenticity check and was not applied.</string>
     <string name="sync_rejected_unknown_sender">This update wasn\'t sent by a member of the group, so it was not applied.</string>
+    <string name="invite_needs_name_title">What should they call you?</string>
+    <string name="invite_needs_name_body">People you invite will see this name next to your expenses.</string>
+    <string name="detail_not_a_member">This phone isn\'t a member of this group, so the others won\'t receive what you add here. Ask someone in the group for a new invite.</string>
     <string name="members_joining_header">Joining</string>
     <string name="members_approval_title">Approve new members</string>
     <string name="members_approval_body">People who use an invite wait until someone in the group lets them in.</string>

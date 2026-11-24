@@ -4,6 +4,7 @@ package app.dibs.feature.groups.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.importer.CsvExport
 import app.dibs.core.domain.ledger.EmojiEdit
 import app.dibs.core.domain.ledger.GroupState
@@ -35,6 +36,14 @@ data class GroupDetailUiState(
     val selfMember: MemberId? = null,
     val pendingCount: Int = 0,
     val syncStatus: SyncStatus? = null,
+    /**
+     * The group has claimed members and this phone's identity is not one of
+     * them — it lost a race for a single-use invite, was removed, or holds a
+     * copy of someone else's group. Its updates will be refused by the others
+     * (AUDIT T1), so the screen must say so instead of letting the user add
+     * expenses nobody will ever receive.
+     */
+    val notAMember: Boolean = false,
 ) {
     /** My net in the group's default currency; null when unknown. */
     val myNet: Money?
@@ -58,6 +67,7 @@ class GroupDetailViewModel @Inject constructor(
     settingsStore: SettingsStore,
     private val bundleSync: BundleSync,
     private val syncMeta: SyncMetaStore,
+    private val identity: IdentitySource,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]) { "groupId nav argument missing" })
@@ -75,8 +85,17 @@ class GroupDetailViewModel @Inject constructor(
                 selfMember = settings.selfMembers[groupId],
                 pendingCount = ledger.pendingCount(groupId),
                 syncStatus = SyncStatus.of(syncMeta.metaFor(groupId), ledger.opCount(groupId)),
+                notAMember = notAMember(state),
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), GroupDetailUiState())
+
+    /** Pre-identity groups (nobody claimed) have no membership to be outside of. */
+    private suspend fun notAMember(state: GroupState): Boolean {
+        val claimed = state.members.values.filter { it.identityKey != null && !it.removed }
+        if (claimed.isEmpty()) return false
+        val myKey = identity.keyPair().publicKey
+        return claimed.none { it.identityKey == myKey }
+    }
 
     /** Seals the whole group for the share sheet (FR-Y1); the screen owns the intent. */
     suspend fun exportSyncBundle(): ByteArray = bundleSync.exportBundle(groupId).also { syncTick.value += 1 }

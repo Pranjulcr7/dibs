@@ -454,6 +454,16 @@ private fun DetailHeader(uiState: GroupDetailUiState, onOpenMembers: () -> Unit)
             .fillMaxWidth()
             .padding(Dimens.spacingMd),
     ) {
+        if (uiState.notAMember) {
+            Text(
+                stringResource(R.string.detail_not_a_member),
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .padding(bottom = Dimens.spacingSm)
+                    .testTag("not-a-member"),
+            )
+        }
         Column(Modifier.fillMaxWidth()) {
             if (net != null && currency != null) {
                 when {

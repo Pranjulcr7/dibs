@@ -84,6 +84,7 @@ class MembersViewModelTest {
         settings,
         bundleSync,
         syncMeta,
+        identity,
     )
 
     @Test
@@ -224,6 +225,24 @@ class MembersViewModelTest {
         assertTrue(first.link.groupKey.contentEquals(second.link.groupKey))
         assertFalse(first.link.inviteId == second.link.inviteId)
         assertEquals(2, ledger.state(groupId).invites.size)
+    }
+
+    @Test
+    fun `given onboarding was skipped when inviting then a name is asked for first and the placeholder member is renamed`() = runTest(dispatcher) {
+        settings.state.value = UserSettings(displayName = "", selfMembers = mapOf(groupId to self))
+        ledger.append(groupId, OpPayload.CreateGroup("Trip", defaultCurrency = CurrencyCode("USD")))
+        ledger.append(groupId, OpPayload.AddMember(self, "You"))
+        ledger.append(groupId, SignedPayloads.claimMember(groupId, self, identity.keyPair()))
+        val viewModel = membersViewModel()
+
+        assertEquals(InviteResult.NeedsName, viewModel.createInvite())
+        assertTrue("nothing is created while the name is missing", ledger.state(groupId).invites.isEmpty())
+
+        viewModel.setMyName("  Priya ")
+
+        assertEquals("Priya", ledger.state(groupId).members.getValue(self).name)
+        assertEquals("Priya", settings.state.value.displayName)
+        assertTrue(viewModel.createInvite() is InviteResult.Ready)
     }
 
     // -- FR-Y4: the sync chip and import outcomes -----------------------------------

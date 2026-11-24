@@ -74,6 +74,7 @@ class SettleTest {
             settings,
             FakeBundleSync(ledger, syncMeta),
             syncMeta,
+            FakeIdentitySource(),
         )
     }
 
