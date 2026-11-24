@@ -1,5 +1,9 @@
 # AUDIT — code ↔ documents reconciliation
 
+> **Superseded (2026-11-25).** This is a snapshot from 2026-08-18. The live,
+> build-checked record of what is implemented and tested is
+> [docs/requirements.yaml](docs/requirements.yaml) (DECISIONS.md D50).
+
 Date: 2026-08-18. Baseline: commit `339e67d` (identity model landed). 217 tests
 green, `./gradlew check` clean. Shipped so far: M0, M1, M2, M3a, M3b, and the
 SPEC §5.9 identity model (ops + hooks; UI in M6).

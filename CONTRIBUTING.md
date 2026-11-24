@@ -17,6 +17,29 @@ merged PR.
 ./gradlew :core:domain:test    # domain tests only — pure JVM, no emulator
 ```
 
+### Requirements and their tests
+
+[docs/requirements.yaml](docs/requirements.yaml) lists every requirement, edge
+case and user flow from SPEC.md with its status and the tests that cover it.
+`./gradlew check` runs `verifyTraceability`, which fails if a test named there
+is renamed or removed. When you add or rename a test for a numbered
+requirement, update its entry; when you close a gap, change the status.
+
+### End-to-end checks on emulators
+
+`scripts/e2e` drives the installed app the way a person would, over adb, on
+two emulators — including sending an invite from one phone to the other:
+
+```bash
+./gradlew :app:assembleFullDebug
+python3 scripts/e2e/run.py --apk app/build/outputs/apk/full/debug/app-full-arm64-v8a-debug.apk
+python3 scripts/e2e/run.py F22 F24      # just these flows
+```
+
+It needs two running emulators (`emulator-5554` and `emulator-5556` by default)
+and a debug build. Flow ids match docs/requirements.yaml. It is slow (a few
+minutes per flow) and is not part of CI yet.
+
 ## Ground rules
 
 The project constitution is [CLAUDE.md](CLAUDE.md); the invariants there are

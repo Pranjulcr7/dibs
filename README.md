@@ -2,7 +2,7 @@
 
 **Split expenses with friends. Everything stays on your phone.**
 
-[![CI](https://github.com/dibs-app/dibs/actions/workflows/ci.yml/badge.svg)](https://github.com/dibs-app/dibs/actions/workflows/ci.yml)
+[![CI](https://github.com/Pranjulcr7/dibs/actions/workflows/ci.yml/badge.svg)](https://github.com/Pranjulcr7/dibs/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 > 🚧 **Pre-release.** The app is functional — groups, all six split modes,
@@ -67,7 +67,7 @@ Requirements: JDK 17 and the Android SDK. Nothing else — no key generation, no
 `local.properties` editing.
 
 ```bash
-git clone https://github.com/dibs-app/dibs.git
+git clone https://github.com/Pranjulcr7/dibs.git
 cd dibs
 ./gradlew :app:assembleDebug
 ```

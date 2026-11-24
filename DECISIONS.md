@@ -388,6 +388,97 @@ M8. No transport code may assume a server exists.
   "some changes may be missing" (edge 75/FR-Y4) by comparing it against the
   local log after ingest — no relay arbitration, no wall clocks.
 
+### D42. An invite is one file: the link in front of the group's data
+
+An invite link carries the group's key, not its contents. A joiner who has
+only the link sees an empty group until someone separately sends an update
+file — two hand-offs in the right order, which is exactly the kind of thing
+that has to be explained. "Send invite" therefore shares a single
+`.dibsinvite` file (`InviteFile`): the link, then a sealed sync bundle.
+Opening it joins in one step with the expenses already there. The QR code
+still carries the link alone, because a bundle does not fit in one; that path
+is for people standing together, and the join screen then asks for the
+updates. The link is in the clear inside the file exactly as it would be in a
+chat message, which the invite dialog says in plain words.
+
+### D43. The joiner checks the invite before writing; the fold still decides
+
+`JoinCheck` mirrors the fold's invite rules (unknown, revoked, expired, used
+up, already a member) on the joiner's phone so the join screen can explain a
+problem and append nothing — a quarantined claim is permanent clutter in a
+shared append-only log. It is never more permissive than the fold (a test
+pins this), and after appending a claim the join flow re-reads folded state
+to confirm it applied, because another phone's claim can still win the race.
+
+### D44. Edge 74 as built: bundle senders are authenticated, not devices
+
+SPEC edge 74 described a signed `AnnounceDevice` op binding a device id to an
+identity key. That op was never built and is not needed: what D41 ships is a
+bundle signed by the sender's identity key, accepted only if that key belongs
+to a claimed, non-removed member in the state *after* a dry-run fold of the
+bundle's own ops. `Op.deviceId` stays unauthenticated metadata used only for
+ordering ties. SPEC edge 74 now says this.
+
+### D45. Edge 29: large bundles are bounded, not streamed
+
+A bundle is one XChaCha20-Poly1305 message and cannot be authenticated until
+all of it has been read, so "stream-parse" would need a chunked AEAD format —
+a major version bump. Instead, files opened from outside the app are read off
+the main thread with a hard 24 MB cap (a 5,000-expense group seals to a few
+MB), with a progress state, and anything larger is refused. Revisit only if
+real groups approach the cap.
+
+### D46. The group key is adopted when the link is opened
+
+Opening an invite link stores the group's key before any data has proved the
+link genuine. The alternative — holding the key in memory until a bundle
+decrypts under it — would lose the join if the app is killed while the person
+is waiting for the updates file. The cost: someone who already knows a group's
+id (a member or a past invitee) could send a link with a wrong key and block
+that phone from joining that group ("doesn't match a group already on this
+phone"). They already hold the real key, so nothing is exposed; the block is
+loud, not silent, and never overwrites a key.
+
+### D47. QR scanning uses zxing, in both flavors
+
+Invite codes are decoded from CameraX analysis frames by zxing (Apache-2.0,
+pure Java) in `:feature:scan`. ML Kit barcode scanning would have made QR
+joining unavailable in the foss flavor.
+
+### D48. A name is asked for at the first invite, not at first launch
+
+Onboarding stays skippable (SPEC §4.1), so the creator's member can be the
+placeholder "You". That is fine alone and wrong the moment the group is
+shared — everyone else would see a member called "You". Creating an invite
+with no display name set asks for one and renames the member.
+
+### D49. A phone that is not a member is told so
+
+After a race for a single-use invite, the loser's phone holds a quarantined
+claim the others never receive (its bundles are refused as coming from a
+non-member). The devices have different op sets, so invariant 6 is not in
+play, but the loser must not be left adding expenses nobody will get: the
+group header says the phone is not a member and to ask for a new invite. The
+same notice covers a removed member.
+
+### D50. docs/requirements.yaml replaces AUDIT.md's tables
+
+Every FR, NFR, edge case and flow has one entry with a status and the tests
+that cover it; `verifyTraceability` (in `check`) fails when an id is missing
+or a named test no longer exists. The file is a fixed-key YAML subset read by
+a 40-line parser, so the build gains no dependency. AUDIT.md is kept as a
+dated snapshot.
+
+### D51. End-to-end checks are black-box, over adb
+
+ROADMAP P1 planned instrumented Compose tests. What was built instead is
+`scripts/e2e`: a driver that reads the screen with `uiautomator` and acts
+with `input`, run against the installed debug APK on two emulators. It knows
+nothing about the app's internals, exercises the real encrypted database,
+intent filters and file provider, and can move a file from one phone to the
+other — which an instrumented test inside one app process cannot. It is
+slower than Compose tests and is not in CI yet.
+
 ## M0 — Foundation
 
 ### D9. compileSdk/targetSdk 36

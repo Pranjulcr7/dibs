@@ -124,7 +124,8 @@ re-learning.
 
 ### 2.6 Sync
 
-- FR-Y1 **Tier 1 (ships in v1): manual.** Join a group by scanning a QR code or
+- FR-Y1 **Tier 1 (ships in v1): manual.** Join a group by opening an invite
+  file (the link plus the group's data — one step, D42), scanning a QR code, or
   pasting a `dibs://` link. Share updates as an encrypted bundle through the
   Android share sheet — any channel the user already has works.
 - FR-Y2 **Tier 2 (v1.1): relay.** Opt-in, per-group. Encrypted deltas pushed to
@@ -471,7 +472,7 @@ Each of these needs a test. Grouped by area.
 | 26 | Same person joins a group twice on two devices | Two member records; offer a merge action; never merge silently |
 | 27 | Corrupted or tampered sync bundle | Fail AEAD auth, reject wholesale, show a specific error. Never partially apply |
 | 28 | Bundle from a different app version | Version field in the envelope; forward-compatible unknown-op skipping with a warning; hard fail on major version mismatch |
-| 29 | Massive bundle (10 MB) | Stream-parse, progress indicator, cancellable |
+| 29 | Massive bundle (10 MB) | Read off the main thread with a hard size cap and a progress state; larger files refused with a specific message. Streaming would need a chunked format (D45) |
 | 30 | Relay unreachable | Queue locally with WorkManager exponential backoff; UI shows pending count; never blocks |
 | 31 | Relay purges old events | Peer-to-peer full-snapshot handoff on join; snapshot also recoverable from any member |
 | 32 | Two people settle the same debt simultaneously | Both settlements recorded; resulting overpayment shown as a credit with a "possible duplicate settlement" hint |
@@ -536,7 +537,7 @@ Each of these needs a test. Grouped by area.
 |---|---|---|
 | 72 | Stolen phone | App lock (biometric); SQLCipher at rest |
 | 73 | Screenshot of financial data | `FLAG_SECURE` as an opt-in setting |
-| 74 | Malicious group member forging ops | Membership ops signed by identity keys (§5.9), verified in the fold. Financial ops are authenticated at the sync boundary: a signed AnnounceDevice op binds deviceId→identity key and sync bundles are signed by the sender (M6; AUDIT T1). Dibs cannot stop a legitimate member from entering false expenses — that's a social problem |
+| 74 | Malicious group member forging ops | Membership ops signed by identity keys (§5.9), verified in the fold. Financial ops are authenticated at the sync boundary: every sync bundle is signed by the sender's identity key and applied only if that key belongs to a claimed, non-removed member after a dry-run fold of the bundle (D41, D44). Device ids are unauthenticated ordering metadata. Dibs cannot stop a legitimate member from entering false expenses — that's a social problem |
 | 75 | Malicious relay dropping or replaying ops | Replay is idempotent; dropping is detected via a vector clock gap and shown as "some changes may be missing" |
 | 76 | Deep link with a crafted payload | Strict parsing, size caps, no reflection, fuzz-tested |
 | 77 | Backup file shared publicly | Encrypted at rest; passphrase strength meter enforced at creation |

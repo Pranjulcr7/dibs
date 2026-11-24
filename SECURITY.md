@@ -31,9 +31,10 @@ Dibs is a local-first app with no server. What that buys, and what it doesn't:
 - **A compromised device.** If your unlocked phone or its OS is compromised,
   your data is readable. No app-level design changes that.
 - **A malicious group member.** Anyone legitimately in a group can read the
-  group's data and enter false expenses. Ops are signed per device, so members
-  cannot be *impersonated* — but honesty about amounts is a social matter, not a
-  cryptographic one.
+  group's data and enter false expenses. Membership changes and the sender of
+  every update file are signed, so a non-member cannot inject anything and a
+  member's *identity* cannot be taken over — but honesty about amounts is a
+  social matter, not a cryptographic one.
 
 ## Cryptographic design
 
@@ -61,9 +62,54 @@ signed operations validated inside the deterministic ledger fold. Invalid or
 forged ops are quarantined, never applied — every device reaches the same
 verdict with no server to arbitrate.
 
+## Sync between phones
+
+There is no server. Phones exchange files that a person sends through a
+channel they already use.
+
+- **Update files** (`.dibssync`) are the `dibs-sync-v1` bundle: a plaintext
+  header (format version, group id, sender device and identity key, sender
+  vector clock, op count) that is also the AEAD associated data; a body sealed
+  with XChaCha20-Poly1305 under the group key; and an Ed25519 signature by the
+  sender's identity key over BLAKE3(header ‖ ciphertext). Any changed byte
+  fails wholesale; nothing is ever partially applied.
+- **Who may send.** A bundle is applied only if its signer is a claimed,
+  non-removed member of the group in the state that results from a dry-run
+  fold of the bundle's own ops. A removed member's later bundles are refused.
+  A group in which nobody has claimed a member yet has nobody to authenticate
+  against, and syncs ungated.
+- **Invite links** (`dibs://join?…`) carry the group id, the 256-bit group key,
+  an invite id and the inviter's signature. **Whoever holds the link can read
+  the group** and, while the invite is unused, unexpired and not cancelled,
+  join it. Send invites only over a channel you trust; cancel one that went to
+  the wrong place.
+- **Invite files** (`.dibsinvite`) are an invite link, in the clear, followed
+  by a sealed update file. They are exactly as sensitive as the link.
+- **Joining** writes a `ClaimMember` op signed by the joiner's identity key
+  and naming the invite. The fold enforces single use, expiry, cancellation and
+  optional approval, identically on every phone. If two people race one
+  single-use invite, exactly one wins on every phone; the other is told their
+  phone is not a member.
+- **Files from outside are untrusted input.** Links are parsed strictly with
+  size caps; opened files are read with a 24 MB cap; the parsers for links,
+  invite files, bundles and backups are tested against arbitrary and mutated
+  bytes and must return a refusal, never throw.
+
+Known limits, stated plainly:
+
+- A member can read everything in the group and can enter false expenses.
+  That is a social problem, not one cryptography solves.
+- The group key does not rotate. Removing a member stops their bundles being
+  accepted; it does not stop them reading update files they still receive.
+- Opening a link stores its key before any data has arrived. Someone who
+  already knows a group's id can send a link with a wrong key and block that
+  phone from joining that group; the block is reported, never silent (D46).
+- Dibs registers as a handler for generic binary files, because chat apps
+  strip custom file types. It checks the first bytes itself and refuses
+  anything that is not a Dibs file.
+
 ## Scope notes
 
-- No data ever leaves the device except user-initiated backup files and
-  encrypted sync bundles.
-- Sync transport details (encrypted bundles, QR invites) will be documented
-  here as M6 lands.
+- No data ever leaves the device except user-initiated backup files, invite
+  files and encrypted update files.
+- No manifest in any build declares the `INTERNET` permission.
