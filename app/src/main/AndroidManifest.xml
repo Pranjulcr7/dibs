@@ -27,6 +27,31 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="dibs" android:host="join" />
             </intent-filter>
+            <!--
+                FR-Y1: invite files (.dibsinvite) and update files (.dibssync) opened
+                from a chat app or file manager. Chat apps strip custom MIME types, so
+                Dibs has to offer itself for generic binary files and then check the
+                file's first bytes itself; anything else gets "that isn't a Dibs file".
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.dibs.invite" />
+                <data android:mimeType="application/vnd.dibs.sync" />
+            </intent-filter>
+            <!-- "Share to Dibs": a received file, or a message containing an invite link. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/vnd.dibs.invite" />
+                <data android:mimeType="application/vnd.dibs.sync" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
         </activity>
 
         <!-- Sync bundles leave the device only through explicit shares (FR-Y1). -->

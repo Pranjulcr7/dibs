@@ -46,6 +46,9 @@ import app.dibs.feature.settings.SettingsRoute
 import app.dibs.feature.settings.onboarding.OnboardingRoute
 import kotlinx.coroutines.launch
 
+/** Saved-state key the QR scan screen uses to return its result to the join screen. */
+private const val SCANNED_LINK = "scannedLink"
+
 private enum class HomeTab(@StringRes val label: Int, val icon: ImageVector) {
     GROUPS(R.string.tab_groups, Icons.Filled.Home),
     ACTIVITY(R.string.tab_activity, Icons.AutoMirrored.Filled.List),
@@ -58,19 +61,33 @@ private enum class HomeTab(@StringRes val label: Int, val icon: ImageVector) {
  * navigation event to lose on process death (edge 61 mindset from day one).
  */
 @Composable
-fun DibsApp(settings: UserSettings, initialRoute: String? = null) {
+fun DibsApp(
+    settings: UserSettings,
+    initialRoute: String? = null,
+    incoming: Incoming? = null,
+    onIncomingHandled: () -> Unit = {},
+) {
     DibsTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
         if (!settings.onboardingComplete) {
+            // An invite opened before first run waits here; it is acted on the
+            // moment onboarding completes, so "install, tap the invite" works.
             OnboardingRoute(onDone = {})
         } else {
-            DibsNavHost(initialRoute)
+            DibsNavHost(initialRoute, incoming, onIncomingHandled)
         }
     }
 }
 
 @Composable
-private fun DibsNavHost(initialRoute: String? = null) {
+private fun DibsNavHost(initialRoute: String? = null, incoming: Incoming? = null, onIncomingHandled: () -> Unit = {}) {
     val navController = rememberNavController()
+    // FR-Y1: an invite link or a Dibs file from outside always lands on the join screen.
+    androidx.compose.runtime.LaunchedEffect(incoming) {
+        if (incoming != null) {
+            navController.navigate(incoming.route()) { launchSingleTop = true }
+            onIncomingHandled()
+        }
+    }
     // A recurring-expense notification lands here with a prefilled-editor route.
     androidx.compose.runtime.LaunchedEffect(initialRoute) {
         if (initialRoute != null) navController.navigate(initialRoute)
@@ -81,10 +98,49 @@ private fun DibsNavHost(initialRoute: String? = null) {
                 onOpenGroup = { navController.navigate("group/${it.value}") },
                 onCreateGroup = { navController.navigate("create-group") },
                 onImport = { navController.navigate("import") },
+                onJoinGroup = { navController.navigate("join") },
                 onAddExpense = { groupId -> navController.navigate("group/${groupId.value}/expense/new") },
                 onOpenExpense = { groupId, expenseId ->
                     navController.navigate("group/${groupId.value}/expense/${expenseId.value}")
                 },
+            )
+        }
+        composable(
+            "join?link={link}&file={file}",
+            arguments = listOf(
+                navArgument("link") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("file") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+            ),
+        ) { entry ->
+            // The QR screen hands its result back through this entry's saved state.
+            val scanned by entry.savedStateHandle.getStateFlow<String?>(SCANNED_LINK, null).collectAsState()
+            app.dibs.feature.groups.join.JoinRoute(
+                onBack = { navController.popBackStack() },
+                onOpenGroup = { groupId ->
+                    navController.navigate("group/${groupId.value}") { popUpTo("home") }
+                },
+                onScanCode = { navController.navigate("scan-invite") },
+                incomingFile = entry.arguments?.getString("file"),
+                scannedLink = scanned,
+            )
+        }
+        composable("scan-invite") {
+            app.dibs.feature.scan.QrScanRoute(
+                // Only a well-formed invite link ends the scan; any other QR code is ignored.
+                accept = { app.dibs.core.domain.ledger.InviteLink.parse(it) != null },
+                onScanned = { text ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set(SCANNED_LINK, text)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() },
             )
         }
         composable("import") {
@@ -192,6 +248,7 @@ private fun HomeScaffold(
     onAddExpense: (app.dibs.core.domain.model.GroupId) -> Unit,
     onOpenExpense: (app.dibs.core.domain.model.GroupId, app.dibs.core.domain.model.ExpenseId) -> Unit,
     onImport: () -> Unit,
+    onJoinGroup: () -> Unit,
     quickAdd: QuickAddViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -238,6 +295,7 @@ private fun HomeScaffold(
                 onCreateGroup = onCreateGroup,
                 onImportFromSplitwise = onImport,
                 onBackUp = { selectedTab = HomeTab.SETTINGS.ordinal },
+                onJoinGroup = onJoinGroup,
                 modifier = contentModifier,
             )
             HomeTab.ACTIVITY -> ActivityRoute(

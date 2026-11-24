@@ -623,7 +623,7 @@ class TwoDeviceJoinTest {
     }
 
     @Test
-    fun `edge 75 - given a relayed bundle whose sender knew more than it carried then the import says changes may be missing`() = runTest(dispatcher) {
+    fun `edge 23 - given an older update file opened after a newer one then nothing is added and nothing is lost`() = runTest(dispatcher) {
         seedAliceGroup()
         bobJoinsAsBob()
         share(bob, alice)

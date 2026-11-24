@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.compose.setContent
@@ -37,6 +38,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Only on a true launch: after a rotation or process restore the same
+        // intent is redelivered, and an invite must not be re-opened then.
+        if (savedInstanceState == null) viewModel.onIncoming(IncomingIntents.from(intent))
 
         // Re-lock whenever the app leaves the foreground with the lock enabled.
         lifecycle.addObserver(
@@ -62,11 +66,24 @@ class MainActivity : FragmentActivity() {
                             LockedScreen(onUnlock = ::showBiometricPrompt)
                         }
                     } else {
-                        DibsApp(current.settings, initialRoute = intent.getStringExtra(RecurringWorker.EXTRA_ROUTE))
+                        val incoming by viewModel.incoming.collectAsState()
+                        DibsApp(
+                            settings = current.settings,
+                            initialRoute = intent.getStringExtra(RecurringWorker.EXTRA_ROUTE),
+                            incoming = incoming,
+                            onIncomingHandled = viewModel::onIncomingHandled,
+                        )
                     }
                 }
             }
         }
+    }
+
+    /** singleTask: a link or file opened while Dibs is already running arrives here. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        viewModel.onIncoming(IncomingIntents.from(intent))
     }
 
     override fun onResume() {

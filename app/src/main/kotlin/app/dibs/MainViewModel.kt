@@ -43,6 +43,23 @@ class MainViewModel @Inject constructor(
         _locked.value = true
     }
 
+    /**
+     * An invite link or file handed to the app from outside (FR-Y1), held here
+     * until the navigation host can act on it: the app may still be showing
+     * onboarding or the lock screen when it arrives, and it must survive a
+     * rotation in between.
+     */
+    private val _incoming = kotlinx.coroutines.flow.MutableStateFlow<Incoming?>(null)
+    val incoming: StateFlow<Incoming?> = _incoming
+
+    fun onIncoming(incoming: Incoming?) {
+        if (incoming != null) _incoming.value = incoming
+    }
+
+    fun onIncomingHandled() {
+        _incoming.value = null
+    }
+
     /** Prompt only when the lock is enabled and currently engaged. */
     fun shouldPromptUnlock(): Boolean {
         val settings = (uiState.value as? MainUiState.Ready)?.settings ?: return false
