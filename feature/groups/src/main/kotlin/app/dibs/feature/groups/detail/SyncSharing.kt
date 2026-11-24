@@ -63,12 +63,12 @@ internal object SyncSharing {
 
 /** Every import outcome has a specific, user-readable message (FR-Y4: never a silent failure). */
 internal fun BundleSync.ImportOutcome.message(context: Context): String = when (this) {
-    is BundleSync.ImportOutcome.Imported ->
-        if (behind.isEmpty()) {
-            context.getString(R.string.sync_imported, opsAdded)
-        } else {
-            context.getString(R.string.sync_imported_behind, opsAdded)
-        }
+    is BundleSync.ImportOutcome.Imported -> when {
+        // Edge 28: changes written by a newer Dibs were left out — say so, and say what fixes it.
+        skippedUnknownOps > 0 -> context.getString(R.string.sync_imported_skipped, opsAdded)
+        behind.isNotEmpty() -> context.getString(R.string.sync_imported_behind, opsAdded)
+        else -> context.getString(R.string.sync_imported, opsAdded)
+    }
     is BundleSync.ImportOutcome.NoKeyForGroup -> context.getString(R.string.sync_no_key)
     BundleSync.ImportOutcome.NotABundle -> context.getString(R.string.sync_not_a_bundle)
     is BundleSync.ImportOutcome.NeedsNewerApp -> context.getString(R.string.sync_needs_newer_app)

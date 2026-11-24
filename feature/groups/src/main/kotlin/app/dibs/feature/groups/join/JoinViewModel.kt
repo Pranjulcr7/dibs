@@ -103,6 +103,8 @@ sealed interface JoinUiState {
         val groupName: String?,
         val opsAdded: Int,
         val mayBeMissing: Boolean,
+        /** Edge 28: ops from a newer app version were left out. */
+        val skippedNewer: Boolean = false,
     ) : JoinUiState
 }
 
@@ -214,6 +216,7 @@ class JoinViewModel @Inject constructor(
                 groupName = ledger.state(outcome.groupId).meta?.name,
                 opsAdded = outcome.opsAdded,
                 mayBeMissing = outcome.behind.isNotEmpty(),
+                skippedNewer = outcome.skippedUnknownOps > 0,
             )
         }
     }

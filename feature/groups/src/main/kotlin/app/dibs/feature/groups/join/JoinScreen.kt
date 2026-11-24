@@ -390,7 +390,11 @@ private fun UpdatesImportedStep(state: JoinUiState.UpdatesImported, actions: Joi
             pluralStringResource(R.plurals.join_updates_added, state.opsAdded, state.opsAdded)
         },
     )
-    if (state.mayBeMissing) StepBody(stringResource(R.string.join_updates_missing))
+    if (state.skippedNewer) {
+        StepBody(stringResource(R.string.join_updates_skipped))
+    } else if (state.mayBeMissing) {
+        StepBody(stringResource(R.string.join_updates_missing))
+    }
     PrimaryButton(stringResource(R.string.join_open_group), "join-open-group") { actions.onOpenGroup(state.groupId) }
 }
 

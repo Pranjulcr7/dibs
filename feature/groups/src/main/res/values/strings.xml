@@ -142,6 +142,7 @@
     </plurals>
     <string name="sync_imported">Updates added: %1$d new changes.</string>
     <string name="sync_imported_behind">Updates added (%1$d), but some changes may still be missing — ask for a fresh share.</string>
+    <string name="sync_imported_skipped">Updates added (%1$d), but some came from a newer version of Dibs and were left out. Update the app, then open the file again.</string>
     <string name="sync_no_key">This update is for a group you haven\'t joined yet. Open the invite link first.</string>
     <string name="sync_not_a_bundle">That file isn\'t a Dibs update.</string>
     <string name="sync_needs_newer_app">This update came from a newer version of Dibs. Update the app to read it.</string>
@@ -195,6 +196,7 @@
         <item quantity="one">%d new change was added.</item>
         <item quantity="other">%d new changes were added.</item>
     </plurals>
+    <string name="join_updates_skipped">Some changes came from a newer version of Dibs and were left out. Update the app, then open the file again.</string>
     <string name="join_updates_missing">Some changes may still be missing — ask for a fresh share.</string>
     <string name="join_problem_title">That didn\'t work</string>
     <string name="join_problem_invalid_link">That isn\'t a Dibs invite link. Check that you copied all of it.</string>

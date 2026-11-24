@@ -128,6 +128,30 @@ class SyncBundlesTest {
     }
 
     @Test
+    fun `edge 28 - given an op type from a newer minor version then it is skipped with a count and the rest applies`() {
+        val a = seededLedger()
+        val ops = a.log.all.toList()
+        val fromTheFuture = ops.maxBy { it.lamport }
+        val bytes = SyncBundles.encode(group, ops, groupKey, deviceA, sender) { op ->
+            if (op.id == fromTheFuture.id) {
+                """{"type":"split_by_vibes","mood":"generous"}"""
+            } else {
+                kotlinx.serialization.json.Json.encodeToString<OpPayload>(op.payload)
+            }
+        }
+
+        val decoded = SyncBundles.decode(bytes, groupKey) as SyncBundles.Result.Decoded
+
+        assertEquals(1, decoded.skippedUnknownOps)
+        assertEquals(ops.size - 1, decoded.ops.size)
+        assertTrue(decoded.ops.none { it.id == fromTheFuture.id })
+        // The sender's clock still covers the skipped op, so the receiver can
+        // tell it is behind (edge 75) instead of believing it has everything.
+        val received = VectorClock.of(decoded.ops)
+        assertTrue(received.behind(decoded.senderClock).isNotEmpty())
+    }
+
+    @Test
     fun `given garbage bytes then decode says not-a-bundle instead of throwing`() {
         assertEquals(SyncBundles.Result.NotABundle, SyncBundles.decode(ByteArray(0), groupKey))
         assertEquals(SyncBundles.Result.NotABundle, SyncBundles.decode(ByteArray(3), groupKey))

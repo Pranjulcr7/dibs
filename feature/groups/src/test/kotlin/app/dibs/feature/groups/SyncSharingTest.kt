@@ -43,6 +43,7 @@ class SyncSharingTest {
                 skippedUnknownOps = 0,
                 behind = mapOf(DeviceId("bb000000-0000-4000-8000-000000000000") to 2L),
             ),
+            BundleSync.ImportOutcome.Imported(group, opsAdded = 3, skippedUnknownOps = 2, behind = emptyMap()),
             BundleSync.ImportOutcome.NoKeyForGroup(group),
             BundleSync.ImportOutcome.NotABundle,
             BundleSync.ImportOutcome.NeedsNewerApp(theirMajor = 2),
@@ -57,5 +58,6 @@ class SyncSharingTest {
         assertEquals("no two outcomes may share a message", messages.size, messages.toSet().size)
         assertEquals("Updates added: 3 new changes.", messages[0])
         assertTrue(messages[1].contains("may still be missing"))
+        assertTrue("edge 28: skipped newer ops are named", messages[2].contains("newer version"))
     }
 }

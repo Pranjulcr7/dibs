@@ -107,6 +107,21 @@ object SyncBundles {
         groupKey: ByteArray,
         senderDevice: DeviceId,
         sender: IdentityKeyPair,
+    ): ByteArray = encode(groupId, ops, groupKey, senderDevice, sender) { json.encodeToString<OpPayload>(it.payload) }
+
+    /**
+     * [payloadJson] is the seam that lets tests write a bundle as a *newer*
+     * app version would — with a payload type this version has never heard
+     * of — so edge 28's skip-with-a-count is exercised for real, not assumed.
+     */
+    @Suppress("LongParameterList") // the public encode's five inputs plus the test seam
+    internal fun encode(
+        groupId: GroupId,
+        ops: List<Op>,
+        groupKey: ByteArray,
+        senderDevice: DeviceId,
+        sender: IdentityKeyPair,
+        payloadJson: (Op) -> String,
     ): ByteArray {
         val header = Header(
             magic = MAGIC,
@@ -127,7 +142,7 @@ object SyncBundles {
                     deviceId = op.deviceId.value,
                     parents = op.parents.map { it.value }.sorted(),
                     wallClockMillis = op.wallClockMillis,
-                    payloadJson = json.encodeToString<OpPayload>(op.payload),
+                    payloadJson = payloadJson(op),
                 )
             },
         )
