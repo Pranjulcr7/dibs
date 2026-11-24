@@ -210,6 +210,14 @@ class Device:
         self.shell(f"input tap {x} {y}")
         time.sleep(0.5)
 
+    def tap_last(self, wanted: str, exact: bool = True) -> None:
+        """Taps the last (lowest on screen) match — for repeated chips in a list."""
+        self.find(wanted, exact=exact)
+        matches = self._match(self.nodes(), wanted, exact)
+        x, y = matches[-1].center
+        self.shell(f"input tap {x} {y}")
+        time.sleep(0.5)
+
     def tap_if_present(self, wanted: str) -> bool:
         if self.has(wanted):
             self.tap(wanted)

@@ -428,6 +428,62 @@ def f16(a: Device, b: Device) -> None:
     a.expect_gone("Archived")
 
 
+def pick_receipt_image(device: Device) -> None:
+    """Scan screen → gallery → the generated receipt in Downloads."""
+    from receipt import write_receipt
+
+    local = os.path.join(OUT, "receipt-e2e.png")
+    os.makedirs(OUT, exist_ok=True)
+    write_receipt(local)
+    device.adb("push", local, "/sdcard/Download/receipt-e2e.png")
+    device.tap("Pick from gallery")
+    device.tap("receipt-e2e.png, ", timeout=20)
+    device.expect("1 frame captured", timeout=20)
+
+
+@flow("F17", "Scan a receipt from the gallery with the camera denied; itemize it; scanning it again warns")
+def f17(a: Device, b: Device) -> None:
+    fresh(a, "Alice")
+    create_group(a, "Cafe")
+    add_members(a, "Bob")
+    a.shell("pm revoke app.dibs android.permission.CAMERA", check=False)
+    a.launch()
+    a.tap("Cafe")
+    a.tap("More actions")
+    a.tap("Scan receipt")
+    # Edge 33: a denied camera is never a dead end.
+    a.tap_if_present("Don’t allow")
+    a.expect("Camera is off — no problem.", "Pick from gallery", "Type it in instead")
+    pick_receipt_image(a)
+    a.tap("Read receipt")
+    # FR-R3: nothing is saved before this review. The text was read on the device —
+    # this build has no INTERNET permission (asserted in F30).
+    a.expect("Check what was read", "Adds up", "Latte", "Bagel", "Cookie", "4.50", "3.25", "5.00", "1.02", "13.77", timeout=30)
+    a.tap("Use these items")
+    a.expect("New expense", "$13.77", "Assign every item to someone")
+    type_into(a, "What was it for?", "Cafe run")
+    a.hide_keyboard()
+    # Payer chips come first, then one Alice/Bob pair per item.
+    a.tap("Alice", exact=True, index=1)   # Latte → Alice
+    a.tap("Bob", exact=True, index=2)     # Bagel → Bob
+    a.scroll_down()
+    a.tap_last("Alice")                   # Cookie → shared
+    a.tap_last("Bob")
+    a.expect("Total from items: $13.77")
+    a.tap("Save expense")
+    # Alice paid 13.77. Bob: bagel 3.25 + half the cookie 2.50 = 5.75 of 12.75,
+    # plus that share of 1.02 tax = 0.46. He owes 6.21, to the cent.
+    a.expect("Cafe run", "$13.77", "You're owed $6.21", timeout=20)
+    assert a.app_file_list("files/receipts"), "FR-E8: the receipt photo was not kept in app-private storage"
+    # Edge 47: the same paper scanned twice is noticed.
+    a.tap("More actions")
+    a.tap("Scan receipt")
+    pick_receipt_image(a)
+    a.tap("Read receipt")
+    a.expect("This looks identical to a receipt already in the group", timeout=30)
+    a.back()
+
+
 @flow("F26", "Settings: theme and name persist across a restart")
 def f26(a: Device, b: Device) -> None:
     fresh(a, "Alice")

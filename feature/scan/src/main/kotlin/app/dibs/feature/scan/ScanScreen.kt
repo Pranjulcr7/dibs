@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -202,7 +203,7 @@ private fun CaptureStep(
         if (step.frameCount > 0) {
             Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.scan_frames, step.frameCount),
+                    pluralStringResource(R.plurals.scan_frames, step.frameCount, step.frameCount),
                     modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -419,16 +420,19 @@ private fun ReviewStep(
 @Composable
 private fun GateBanner(gatePassed: Boolean?, hasTaxOrTip: Boolean) {
     if (gatePassed == null) return
-    val suffix = if (hasTaxOrTip) stringResource(R.string.review_gate_taxes) else ""
+    // Whole sentences per case: a spliced-in fragment loses its leading space in
+    // resources ("items+ tax/tip") and cannot be translated into most languages.
     if (gatePassed) {
         Text(
-            stringResource(R.string.review_gate_ok, suffix),
+            stringResource(if (hasTaxOrTip) R.string.review_gate_ok_with_tax else R.string.review_gate_ok),
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.bodyMedium,
         )
     } else {
         Text(
-            stringResource(R.string.review_gate_mismatch, suffix),
+            stringResource(
+                if (hasTaxOrTip) R.string.review_gate_mismatch_with_tax else R.string.review_gate_mismatch,
+            ),
             color = MaterialTheme.colorScheme.error,
             style = MaterialTheme.typography.bodyMedium,
         )
