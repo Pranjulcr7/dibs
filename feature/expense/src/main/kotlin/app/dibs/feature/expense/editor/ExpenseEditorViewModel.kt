@@ -71,6 +71,12 @@ data class EditorDraft(
     val dateEpochDay: Long = 0,
     val currency: String? = null,
     val payer: String? = null,
+    /**
+     * FR-E3: several people chipped in. When set, [paidText] (member → amount
+     * typed) replaces the single [payer]; the amounts must sum to the total.
+     */
+    val multiPayer: Boolean = false,
+    val paidText: Map<String, String> = emptyMap(),
     val mode: String = "equal",
     val participants: Set<String> = emptySet(),
     val exactText: Map<String, String> = emptyMap(),
@@ -126,6 +132,27 @@ sealed interface SplitPreview {
     data class NotReady(val issue: Issue) : SplitPreview
 }
 
+/**
+ * Who paid, derived from the draft (FR-E3). Like [SplitPreview], it is the one
+ * source for both the on-screen indicator and what save writes, so the two can
+ * never disagree — and `paid` always sums to the total, the same invariant the
+ * fold checks.
+ */
+sealed interface PayerPreview {
+    data class Ready(val paidBy: Map<MemberId, Money>) : PayerPreview
+
+    /** Positive: still to assign. Negative: the payments exceed the total. */
+    data class Remaining(val remaining: Money) : PayerPreview
+
+    data object NoPayer : PayerPreview
+
+    /** A payment that is not a non-negative amount. */
+    data object Invalid : PayerPreview
+
+    /** The total itself is not known yet, so payments cannot be checked against it. */
+    data object NoAmount : PayerPreview
+}
+
 data class EditorMember(val id: MemberId, val name: String, val isSelf: Boolean)
 
 data class EditorUiState(
@@ -147,8 +174,16 @@ data class EditorUiState(
     val itemizedTotal: Money?
         get() = currency?.let { itemizedTotalOf(draft, it) }
 
+    /** Who paid what, checked against the same total the split uses. */
+    val payers: PayerPreview
+        get() {
+            val ccy = currency ?: return PayerPreview.NoAmount
+            return payersFor(draft, ccy, (preview as? SplitPreview.Ready)?.total ?: totalOf(draft, ccy))
+        }
+
     val canSave: Boolean
-        get() = loaded && draft.description.isNotBlank() && draft.payer != null && preview is SplitPreview.Ready
+        get() = loaded && draft.description.isNotBlank() && payers is PayerPreview.Ready &&
+            preview is SplitPreview.Ready
 
     /** True exactly when a blank description is the only thing keeping Save disabled. */
     val blockedOnDescription: Boolean
@@ -279,18 +314,18 @@ class ExpenseEditorViewModel @Inject constructor(
             if (!loadedFlow.value) return@launch
             val draft = draftFlow.value
             if (draft.description.isBlank()) return@launch
-            val payer = draft.payer?.let(::MemberId) ?: return@launch
             val groupState = ledger.state(groupId)
             val currency = draft.currency?.let(::CurrencyCode)
                 ?: groupState.meta?.defaultCurrency
                 ?: CurrencyCode("USD")
             val preview = previewFor(draft, currency) as? SplitPreview.Ready ?: return@launch
+            val payers = payersFor(draft, currency, preview.total) as? PayerPreview.Ready ?: return@launch
 
             val fields = ExpenseFields(
                 description = draft.description.trim(),
                 currency = currency,
                 total = preview.total,
-                paidBy = mapOf(payer to preview.total),
+                paidBy = payers.paidBy,
                 owedBy = preview.allocations.associate { it.memberId to it.amount },
                 dateEpochDay = draft.dateEpochDay,
                 note = draft.note.trim().ifEmpty { null },
@@ -366,6 +401,16 @@ class ExpenseEditorViewModel @Inject constructor(
             dateEpochDay = fields.dateEpochDay,
             currency = currency.value,
             payer = fields.paidBy.keys.firstOrNull()?.value,
+            // Several payers reopen as several payers, with what each actually
+            // paid. Collapsing them to one would rewrite who paid on any save.
+            multiPayer = fields.paidBy.size > 1,
+            paidText = if (fields.paidBy.size > 1) {
+                fields.paidBy.entries.associate { (member, amount) ->
+                    member.value to MoneyInput.toPlainString(amount, currency)
+                }
+            } else {
+                emptyMap()
+            },
             mode = reopenMode.tag,
             participants = fields.owedBy.keys.map { it.value }.toSet(),
             exactText = fields.owedBy.entries.associate { (member, amount) ->
@@ -389,6 +434,35 @@ class ExpenseEditorViewModel @Inject constructor(
 }
 
 // -- pure preview derivation (unit-testable without the ViewModel) -----------
+
+/** The expense total as typed: the amount field, or the item sum in itemized mode. */
+internal fun totalOf(draft: EditorDraft, currency: CurrencyCode): Money? =
+    if (SplitModeUi.fromTag(draft.mode) == SplitModeUi.ITEMIZED) {
+        itemizedTotalOf(draft, currency)
+    } else {
+        MoneyInput.parse(draft.amountText, currency)
+    }
+
+/** Draft → who paid what, validated against [total]. Blank and zero payments mean "did not pay". */
+@Suppress("ReturnCount") // one exit per state the payer row can show
+internal fun payersFor(draft: EditorDraft, currency: CurrencyCode, total: Money?): PayerPreview {
+    if (total == null) return PayerPreview.NoAmount
+    if (!draft.multiPayer) {
+        val payer = draft.payer ?: return PayerPreview.NoPayer
+        return PayerPreview.Ready(mapOf(MemberId(payer) to total))
+    }
+    // Blank means "did not pay"; anything else must be a valid amount.
+    val typed = draft.paidText.toSortedMap().filterValues { it.isNotBlank() }
+    val parsed = typed.mapValues { (_, text) -> MoneyInput.parse(text, currency) ?: return PayerPreview.Invalid }
+    val paid = parsed.filterValues { it != Money.ZERO }.mapKeys { MemberId(it.key) }
+    if (paid.isEmpty()) return PayerPreview.NoPayer
+    val sum = try {
+        paid.values.fold(Money.ZERO) { acc, amount -> acc + amount }
+    } catch (_: ArithmeticException) {
+        return PayerPreview.Invalid
+    }
+    return if (sum == total) PayerPreview.Ready(paid) else PayerPreview.Remaining(total - sum)
+}
 
 internal fun itemizedTotalOf(draft: EditorDraft, currency: CurrencyCode): Money? {
     var sum = Money.ZERO

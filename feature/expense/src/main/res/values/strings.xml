@@ -11,6 +11,12 @@
     <string name="editor_date_label">Date</string>
     <string name="editor_currency_label">Currency</string>
     <string name="editor_paid_by">Paid by</string>
+    <string name="editor_several_payers">Several people</string>
+    <string name="editor_paid_amount">%1$s paid</string>
+    <string name="payers_ready">Payments add up</string>
+    <string name="payers_left">%1$s of the total isn\'t paid by anyone yet</string>
+    <string name="payers_over">Payments are %1$s over the total</string>
+    <string name="payers_none">Enter what each person paid</string>
     <string name="editor_split_mode">Split</string>
     <string name="editor_participants">Between</string>
     <string name="editor_save">Save expense</string>

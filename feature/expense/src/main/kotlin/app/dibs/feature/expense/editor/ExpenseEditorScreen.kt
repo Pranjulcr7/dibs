@@ -49,8 +49,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.dibs.core.domain.ledger.ExpenseEvent
+import app.dibs.core.domain.money.CurrencyCode
+import app.dibs.core.ui.money.MoneyFormatter
 import app.dibs.core.ui.theme.AmountTextStyles
 import app.dibs.core.ui.theme.Dimens
+import app.dibs.core.ui.theme.LocalMoneyColors
 import app.dibs.feature.expense.R
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -257,12 +260,30 @@ fun ExpenseEditorScreen(
                 ) {
                     uiState.members.forEach { member ->
                         FilterChip(
-                            selected = draft.payer == member.id.value,
-                            onClick = { onDraftChange { it.copy(payer = member.id.value) } },
+                            selected = !draft.multiPayer && draft.payer == member.id.value,
+                            onClick = { onDraftChange { it.copy(payer = member.id.value, multiPayer = false) } },
                             label = { Text(member.name) },
                             modifier = Modifier.testTag("payer-${member.id.value}"),
                         )
                     }
+                    // FR-E3: three people chipped in for the Airbnb.
+                    FilterChip(
+                        selected = draft.multiPayer,
+                        onClick = {
+                            onDraftChange { current ->
+                                // Start from what is already known: the single payer paid it all.
+                                val seeded = current.paidText.ifEmpty {
+                                    current.payer?.let { mapOf(it to current.amountText) }.orEmpty()
+                                }
+                                current.copy(multiPayer = !current.multiPayer, paidText = seeded)
+                            }
+                        },
+                        label = { Text(stringResource(R.string.editor_several_payers)) },
+                        modifier = Modifier.testTag("payer-several"),
+                    )
+                }
+                if (draft.multiPayer) {
+                    MultiPayerEditor(uiState, currency, onDraftChange)
                 }
             }
 
@@ -364,3 +385,49 @@ private const val MILLIS_PER_DAY = 86_400_000L
 private const val REPEAT_WEEKLY = 7
 private const val REPEAT_MONTHLY = 30
 private const val NOTIF_PERMISSION_SDK = 33
+
+/** One amount per member, with the same "left to assign" language as the split editors. */
+@Composable
+private fun MultiPayerEditor(
+    uiState: EditorUiState,
+    currency: CurrencyCode,
+    onDraftChange: ((EditorDraft) -> EditorDraft) -> Unit,
+) {
+    val moneyColors = LocalMoneyColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(Dimens.spacingXs)) {
+        uiState.members.forEach { member ->
+            OutlinedTextField(
+                value = uiState.draft.paidText[member.id.value].orEmpty(),
+                onValueChange = { text ->
+                    onDraftChange { it.copy(paidText = it.paidText + (member.id.value to text)) }
+                },
+                label = { Text(stringResource(R.string.editor_paid_amount, member.name)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("paid-${member.id.value}"),
+            )
+        }
+        val (text, color) = when (val payers = uiState.payers) {
+            is PayerPreview.Ready -> stringResource(R.string.payers_ready) to moneyColors.positive
+            is PayerPreview.Remaining ->
+                if (payers.remaining.isNegative) {
+                    stringResource(R.string.payers_over, MoneyFormatter.format(-payers.remaining, currency)) to
+                        moneyColors.negative
+                } else {
+                    stringResource(R.string.payers_left, MoneyFormatter.format(payers.remaining, currency)) to
+                        moneyColors.neutral
+                }
+            PayerPreview.NoPayer -> stringResource(R.string.payers_none) to moneyColors.neutral
+            PayerPreview.Invalid -> stringResource(R.string.issue_invalid_input) to moneyColors.negative
+            PayerPreview.NoAmount -> stringResource(R.string.issue_no_amount) to moneyColors.neutral
+        }
+        Text(
+            text,
+            color = color,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.testTag("payers-status"),
+        )
+    }
+}

@@ -2,7 +2,9 @@
 package app.dibs.feature.expense.editor
 
 import androidx.lifecycle.SavedStateHandle
+import app.dibs.core.domain.ledger.ExpenseFields
 import app.dibs.core.domain.ledger.OpPayload
+import app.dibs.core.domain.model.ExpenseId
 import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
@@ -21,6 +23,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -238,6 +241,132 @@ class ExpenseEditorViewModelTest {
         assertEquals("exact", draft.mode)
         assertEquals("6.00", draft.exactText[alice.value])
         assertEquals("4.00", draft.exactText[bob.value])
+    }
+
+    // -- FR-E3: several payers ------------------------------------------------------
+
+    private suspend fun seedTwoPayerExpense(): ExpenseId {
+        val id = ExpenseId("e2000000-0000-4000-8000-000000000000")
+        ledger.append(
+            groupId,
+            OpPayload.AddExpense(
+                id,
+                ExpenseFields(
+                    description = "Airbnb",
+                    currency = usd,
+                    total = Money(30_000),
+                    paidBy = mapOf(alice to Money(20_000), bob to Money(10_000)),
+                    owedBy = mapOf(alice to Money(10_000), bob to Money(10_000), carol to Money(10_000)),
+                    dateEpochDay = 20_000,
+                    splitMode = "equal",
+                ),
+            ),
+        )
+        return id
+    }
+
+    @Test
+    fun `FR-E3 - given an expense with two payers when only the description is edited then who paid what is untouched`() = runTest(dispatcher) {
+        // The regression this pins: a single-payer editor rewrote such an
+        // expense to "first payer paid everything" on any save, silently
+        // moving money between members.
+        seedGroup()
+        val id = seedTwoPayerExpense()
+        val balancesBefore = ledger.state(groupId).balances()
+        val opsBefore = ledger.allOps(groupId).size
+
+        val vm = viewModel(SavedStateHandle(mapOf("groupId" to groupId.value, "expenseId" to id.value)))
+        dispatcher.scheduler.advanceUntilIdle()
+        val loaded = vm.uiState.first { it.loaded }
+        assertTrue(loaded.draft.multiPayer)
+        assertEquals(mapOf(alice.value to "200.00", bob.value to "100.00"), loaded.draft.paidText)
+        assertTrue(loaded.canSave)
+
+        vm.updateDraft { it.copy(description = "Airbnb, 3 nights") }
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val after = ledger.state(groupId)
+        assertEquals(mapOf(alice to Money(20_000), bob to Money(10_000)), after.expenses.getValue(id).fields.paidBy)
+        assertEquals(balancesBefore, after.balances())
+        val edit = (ledger.allOps(groupId).maxBy { it.lamport }.payload as OpPayload.EditExpense).edit
+        assertEquals("Airbnb, 3 nights", edit.description)
+        assertEquals("the money block was not rewritten", null, edit.amounts)
+        assertEquals(opsBefore + 1, ledger.allOps(groupId).size)
+    }
+
+    @Test
+    fun `FR-E3 - given several payers entered then the saved expense records each payment and they sum to the total`() = runTest(dispatcher) {
+        seedGroup()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.updateDraft {
+            it.copy(
+                amountText = "90.00",
+                description = "Dinner",
+                participants = setOf(alice.value, bob.value, carol.value),
+                multiPayer = true,
+                paidText = mapOf(alice.value to "50", bob.value to "40.00", carol.value to ""),
+            )
+        }
+        assertTrue(vm.uiState.first { it.loaded }.canSave)
+
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val fields = ledger.state(groupId).expenses.values.single().fields
+        assertEquals(mapOf(alice to Money(5000), bob to Money(4000)), fields.paidBy)
+        assertEquals(Money(9000), fields.total)
+        // Each owes 30: Alice is +20, Bob +10, Carol −30 — zero-sum, as always.
+        val nets = ledger.state(groupId).balances().getValue(usd).associate { it.memberId to it.net }
+        assertEquals(mapOf(alice to Money(2000), bob to Money(1000), carol to Money(-3000)), nets)
+    }
+
+    @Test
+    fun `FR-E3 - given payments that do not add up to the total then save is blocked and nothing is written`() = runTest(dispatcher) {
+        seedGroup()
+        val vm = viewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        vm.updateDraft {
+            it.copy(
+                amountText = "90.00",
+                description = "Dinner",
+                participants = setOf(alice.value, bob.value),
+                multiPayer = true,
+                paidText = mapOf(alice.value to "50", bob.value to "30"),
+            )
+        }
+
+        val state = vm.uiState.first { it.loaded }
+        assertEquals(PayerPreview.Remaining(Money(1000)), state.payers)
+        assertFalse(state.canSave)
+        vm.save()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(ledger.state(groupId).expenses.isEmpty())
+    }
+
+    @Test
+    fun `FR-E3 - given the pure payer derivation then every state is distinguished`() {
+        val total = Money(1000)
+        fun multi(vararg paid: Pair<String, String>) = EditorDraft(multiPayer = true, paidText = paid.toMap())
+
+        assertEquals(PayerPreview.Ready(mapOf(alice to total)), payersFor(EditorDraft(payer = alice.value), usd, total))
+        assertEquals(PayerPreview.NoPayer, payersFor(EditorDraft(), usd, total))
+        assertEquals(
+            PayerPreview.Ready(mapOf(alice to Money(600), bob to Money(400))),
+            payersFor(multi(alice.value to "6", bob.value to "4.00"), usd, total),
+        )
+        // Over-assigned shows as a negative remainder, exactly like the split bar.
+        assertEquals(PayerPreview.Remaining(Money(-200)), payersFor(multi(alice.value to "12"), usd, total))
+        assertEquals(PayerPreview.NoPayer, payersFor(multi(alice.value to "", bob.value to "0"), usd, total))
+        assertEquals(PayerPreview.Invalid, payersFor(multi(alice.value to "six"), usd, total))
+        assertEquals(PayerPreview.Invalid, payersFor(multi(alice.value to "-5"), usd, total))
+        assertEquals(PayerPreview.NoAmount, payersFor(multi(alice.value to "5"), usd, total = null))
+        // A zero-total expense (edge 3) with one payer is still a valid record.
+        assertEquals(
+            PayerPreview.Ready(mapOf(alice to Money.ZERO)),
+            payersFor(EditorDraft(payer = alice.value), usd, Money.ZERO),
+        )
     }
 
     @Test
