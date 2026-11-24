@@ -436,6 +436,14 @@ def pick_receipt_image(device: Device) -> None:
     os.makedirs(OUT, exist_ok=True)
     write_receipt(local)
     device.adb("push", local, "/sdcard/Download/receipt-e2e.png")
+    # A pushed file is invisible to the system picker until the media index has seen it.
+    device.shell(
+        "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE "
+        "-d file:///sdcard/Download/receipt-e2e.png >/dev/null",
+        check=False,
+    )
+    device.shell("content call --uri content://media --method scan_volume --arg external_primary >/dev/null", check=False)
+    time.sleep(2)
     device.tap("Pick from gallery")
     device.tap("receipt-e2e.png, ", timeout=20)
     device.expect("1 frame captured", timeout=20)
@@ -566,6 +574,9 @@ def main() -> int:
         if args.apk:
             device.install(args.apk)
 
+    # Run as a script this module is `__main__`; alias it so `from run import flow`
+    # in flows_sync registers into this FLOWS table, not a second copy of it.
+    sys.modules.setdefault("run", sys.modules[__name__])
     import flows_sync  # noqa: F401  registers the two-phone flows
 
     wanted = args.flows or list(FLOWS)

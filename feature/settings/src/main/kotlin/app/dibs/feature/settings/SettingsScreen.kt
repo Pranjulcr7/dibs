@@ -96,6 +96,7 @@ fun SettingsRoute(modifier: Modifier = Modifier, viewModel: SettingsViewModel = 
             modifier = modifier,
             onBackUpClick = { showBackupDialog = true },
             onRestoreClick = { openLauncher.launch(arrayOf("*/*")) },
+            versionName = installedVersionName(context),
         )
     }
 
@@ -134,6 +135,7 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onBackUpClick: () -> Unit = {},
     onRestoreClick: () -> Unit = {},
+    versionName: String? = null,
 ) {
     Column(
         modifier = modifier
@@ -255,6 +257,15 @@ fun SettingsScreen(
         SectionHeader(R.string.settings_section_about)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(Dimens.spacingMd)) {
+                // FR-T6: the version a bug report needs, read from the installed package.
+                if (versionName != null) {
+                    Text(
+                        stringResource(R.string.settings_version, versionName),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.testTag("about-version"),
+                    )
+                    Spacer(Modifier.height(Dimens.spacingSm))
+                }
                 Text(
                     stringResource(R.string.settings_about_privacy),
                     style = MaterialTheme.typography.bodyMedium,
@@ -332,4 +343,11 @@ private fun SettingsPreviewDark() {
 @Composable
 private fun SettingsPreviewLargeFont() {
     DibsTheme { SettingsScreen(UserSettings(), {}, {}, {}, {}, {}, {}) }
+}
+
+/** The installed app's version name, or null if the package manager cannot say. */
+private fun installedVersionName(context: android.content.Context): String? = try {
+    context.packageManager.getPackageInfo(context.packageName, 0).versionName
+} catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+    null
 }

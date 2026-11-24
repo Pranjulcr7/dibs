@@ -132,7 +132,6 @@ fun GroupDetailRoute(
     // editor reports what it just moved to trash; this screen offers it back.
     LaunchedEffect(deletedExpenseId) {
         if (deletedExpenseId != null) {
-            onDeletedShown()
             val result = snackbarHostState.showSnackbar(
                 message = context.getString(R.string.expense_deleted),
                 actionLabel = context.getString(R.string.expense_deleted_undo),
@@ -143,6 +142,9 @@ fun GroupDetailRoute(
             if (result == SnackbarResult.ActionPerformed) {
                 viewModel.restoreExpense(app.dibs.core.domain.model.ExpenseId(deletedExpenseId))
             }
+            // Cleared only now: clearing first changes this effect's key and
+            // cancels the snackbar before it is ever drawn (seen on device).
+            onDeletedShown()
         }
     }
     val haptics = LocalHapticFeedback.current
