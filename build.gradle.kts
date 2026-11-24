@@ -12,6 +12,8 @@ plugins {
     alias(libs.plugins.hilt) apply false
     alias(libs.plugins.detekt) apply false
     alias(libs.plugins.ktlint) apply false
+    // docs/requirements.yaml ↔ tests; see TraceabilityPlugin.
+    id("dibs.traceability")
 }
 
 subprojects {

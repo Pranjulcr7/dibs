@@ -35,6 +35,10 @@ gradlePlugin {
             id = "dibs.android.compose"
             implementationClass = "AndroidComposeConventionPlugin"
         }
+        register("traceability") {
+            id = "dibs.traceability"
+            implementationClass = "TraceabilityPlugin"
+        }
         register("hilt") {
             id = "dibs.hilt"
             implementationClass = "HiltConventionPlugin"
