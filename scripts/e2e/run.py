@@ -94,8 +94,30 @@ def type_into(device: Device, label: str, text: str) -> None:
     raise StepFailed(f"[{device.name}] could not type '{text}' into '{label}'; saw: {device.labels()}")
 
 
+def replace_in(device: Device, label: str, text: str) -> None:
+    """Replaces whatever a field holds with `text`."""
+    device.tap(label, exact=True)
+    deadline = time.time() + 6
+    current = _focused_text(device)
+    while current is None and time.time() < deadline:
+        time.sleep(0.4)
+        current = _focused_text(device)
+    if current is None:
+        raise StepFailed(f"[{device.name}] '{label}' never took focus; saw: {device.labels()}")
+    if current:
+        device.shell("input keyevent KEYCODE_MOVE_END")
+        device.shell("input keyevent " + " ".join(["KEYCODE_DEL"] * len(current)))
+    device.type(text)
+    time.sleep(0.6)
+    if _focused_text(device) != text:
+        raise StepFailed(f"[{device.name}] '{label}' holds {_focused_text(device)!r}, wanted {text!r}")
+
+
 def create_group(device: Device, name: str, emoji: str | None = "✈️") -> None:
-    device.tap("Create a group") if device.has("Create a group") else device.tap("Add expense")
+    """From the groups list: the empty state and the end of a non-empty list both offer it."""
+    if not device.has("Create a group"):
+        device.scroll_down()
+    device.tap("Create a group")
     device.expect("New group")
     type_into(device, "Group name", name)
     device.hide_keyboard()
@@ -224,6 +246,36 @@ def f05(a: Device, b: Device) -> None:
     a.tap_if_present("Discard")
 
 
+@flow("F06", "Several payers: payments must add up to the total before saving")
+def f06(a: Device, b: Device) -> None:
+    fresh(a, "Alice")
+    create_group(a, "Airbnb")
+    add_members(a, "Bob")
+    a.tap("Add expense")
+    a.type("90")
+    type_into(a, "What was it for?", "Two nights")
+    a.hide_keyboard()
+    a.tap("Several people")
+    # Starts from what was known: the single payer paid it all.
+    a.expect("Alice paid", "Bob paid", "Payments add up")
+    type_into(a, "Bob paid", "40")
+    a.hide_keyboard()
+    a.expect("Payments are $40.00 over the total")
+    replace_in(a, "Alice paid", "50")
+    a.hide_keyboard()
+    a.expect("Payments add up")
+    a.tap("Save expense")
+    # Each owes 45: Alice paid 50 so is owed 5; Bob paid 40 so owes 5.
+    a.expect("Two nights", "$90.00", "You're owed $5.00")
+    # Reopening shows both payers, and saving a text-only edit leaves the money alone.
+    a.tap("Two nights")
+    a.expect("Edit expense", "Payments add up")
+    type_into(a, "Two nights", " in Goa")
+    a.hide_keyboard()
+    a.tap("Save expense")
+    a.expect("Two nights in Goa", "You're owed $5.00")
+
+
 @flow("F07", "Edit an expense and read its history")
 def f07(a: Device, b: Device) -> None:
     fresh(a, "Alice")
@@ -249,6 +301,13 @@ def f08(a: Device, b: Device) -> None:
     create_group(a, "Trash test")
     add_members(a, "Bob")
     add_expense(a, "12", "Coffee")
+    a.tap("Coffee")
+    a.expect("Edit expense")
+    a.tap("Delete expense")
+    # SPEC 4.2: a reversible delete offers Undo right away.
+    a.expect("Expense moved to trash")
+    a.tap("Undo")
+    a.expect("Coffee", "You're owed $6.00")
     a.tap("Coffee")
     a.expect("Edit expense")
     a.tap("Delete expense")
@@ -301,6 +360,11 @@ def f12(a: Device, b: Device) -> None:
     a.expect("Who owes whom", "Bob owes Alice", "$20.00", "Simplify debts")
     a.tap("Simplify debts")
     a.expect("Fewer payments that settle the same totals")
+    # FR-S5: a balance opens into what it is made of.
+    a.tap("Bob", exact=True)
+    a.expect("Bob — the details", "Paid for the group", "Share of expenses", "Groceries", "Paid $0.00 · share $20.00")
+    a.tap("Back to balances")
+    a.expect("Who owes whom")
 
 
 @flow("F13", "Settle up: suggested payment, partial payment, history")
@@ -319,12 +383,27 @@ def f13(a: Device, b: Device) -> None:
     a.expect("Settled up")
 
 
+@flow("F14", "Share who owes whom as plain text")
+def f14(a: Device, b: Device) -> None:
+    fresh(a, "Alice")
+    create_group(a, "Reminders")
+    add_members(a, "Bob")
+    add_expense(a, "24", "Tickets")
+    a.tap("More actions")
+    a.tap("Share who owes whom")
+    # The system share sheet previews the text Dibs handed it.
+    a.expect("who owes whom", timeout=15)
+    assert any("Bob owes Alice $12.00" in label for label in a.labels()), a.labels()
+    a.back()
+
+
 @flow("F15", "Just this once: a one-off split without creating a group")
 def f15(a: Device, b: Device) -> None:
     fresh(a, "Alice")
     create_group(a, "One")
     a.tap("Back")
-    create_group_from_list(a, "Two")
+    a.expect("One", "1 member")
+    create_group(a, "Two")
     a.tap("Back")
     a.tap("Add expense")
     a.expect("Add expense to…", "One", "Two", "Just this once")
@@ -332,13 +411,6 @@ def f15(a: Device, b: Device) -> None:
     a.expect("New expense")
     a.back()
     a.tap_if_present("Discard")
-
-
-def create_group_from_list(device: Device, name: str) -> None:
-    """With groups already present the list has no 'Create a group' button; find the way in."""
-    if device.has("Create a group"):
-        return create_group(device, name)
-    raise StepFailed(f"[{device.name}] no way to create a second group from the list; saw: {device.labels()}")
 
 
 @flow("F16", "Archive and unarchive a group")

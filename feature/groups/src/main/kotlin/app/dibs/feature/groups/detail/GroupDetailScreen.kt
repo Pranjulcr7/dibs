@@ -32,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -120,6 +121,7 @@ fun GroupDetailRoute(
                 val result = snackbarHostState.showSnackbar(
                     message = context.getString(R.string.sync_joined_notice, name),
                     actionLabel = context.getString(R.string.sync_joined_notice_action),
+                    duration = SnackbarDuration.Long,
                 )
                 // The Members screen is where "joined with your invite" and Remove live.
                 if (result == SnackbarResult.ActionPerformed) onOpenMembers()
@@ -134,6 +136,9 @@ fun GroupDetailRoute(
             val result = snackbarHostState.showSnackbar(
                 message = context.getString(R.string.expense_deleted),
                 actionLabel = context.getString(R.string.expense_deleted_undo),
+                // With an action the default is "until dismissed"; an Undo should
+                // be there long enough to reach, then get out of the way.
+                duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) {
                 viewModel.restoreExpense(app.dibs.core.domain.model.ExpenseId(deletedExpenseId))
