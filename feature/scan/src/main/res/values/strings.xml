@@ -32,4 +32,8 @@
     <string name="review_duplicate">This looks identical to a receipt already in the group. Add it again?</string>
     <string name="review_use">Use these items</string>
     <string name="review_rescan">Scan again</string>
+    <string name="qr_title">Scan an invite</string>
+    <string name="qr_hint">Point the camera at the code on the other phone. It\'s under Members → Invite.</string>
+    <string name="qr_permission_denied">Dibs can\'t use the camera, so it can\'t scan a code. You can still join by opening the invite file or pasting the link.</string>
+    <string name="qr_use_other_way">Go back</string>
 </resources>

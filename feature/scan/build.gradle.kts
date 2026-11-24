@@ -18,6 +18,9 @@ dependencies {
     implementation(libs.androidx.camera.camera2)
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
+    // Invite QR codes are decoded on-device with zxing (pure Java) — no ML Kit
+    // barcode dependency, so the foss flavor can scan too.
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit4)
     testImplementation(libs.kotlinx.coroutines.test)
