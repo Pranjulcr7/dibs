@@ -437,7 +437,13 @@ def f26(a: Device, b: Device) -> None:
     a.force_stop()
     a.launch()
     a.tap("Settings", exact=True)
-    a.expect("Alice", "Dibs collects nothing")
+    a.expect("Alice", "Dark")
+    # The switches are labelled rows now: tapping the words toggles them (NFR-10).
+    a.tap("Block screenshots")
+    a.scroll_down()
+    a.expect("Dibs collects nothing", "Apache-2.0", "Version")
+    a.shell("input swipe 540 700 540 1700 250")
+    a.tap("Block screenshots")
     a.tap("System", exact=True)
 
 

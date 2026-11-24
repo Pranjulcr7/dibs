@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import app.dibs.core.domain.crypto.Identity
 import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.OpPayload
+import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
@@ -20,6 +21,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -140,5 +142,49 @@ class GroupsViewModelsTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(ledger.observeGroupIds().first().isEmpty())
+    }
+
+    // -- FR-I5: the backup reminder ---------------------------------------------------
+
+    private suspend fun nudgeFor(lastBackupDaysAgo: Long?, backedUpOpCount: Long): Boolean {
+        val now = 1_700_000_000_000L
+        settings.state.value = settings.state.value.copy(
+            lastBackupAtMillis = lastBackupDaysAgo?.let { now - it * 24 * 60 * 60 * 1000 },
+            backedUpOpCount = backedUpOpCount,
+        )
+        val viewModel = GroupsViewModel(ledger, settings).apply { wallClock = { now } }
+        var nudge = false
+        // Subscribed so the StateFlow is live; then read where it settled.
+        viewModel.backupNudge.test {
+            dispatcher.scheduler.advanceUntilIdle()
+            nudge = viewModel.backupNudge.value
+            cancelAndConsumeRemainingEvents()
+        }
+        return nudge
+    }
+
+    @Test
+    fun `FR-I5 - given data and no backup ever then the reminder shows`() = runTest(dispatcher) {
+        ledger.append(GroupId("11111111-0000-4000-8000-000000000000"), OpPayload.CreateGroup("Trip", defaultCurrency = CurrencyCode("USD")))
+
+        assertTrue(nudgeFor(lastBackupDaysAgo = null, backedUpOpCount = 0))
+    }
+
+    @Test
+    fun `FR-I5 - given an empty app then there is nothing to remind about`() = runTest(dispatcher) {
+        assertFalse(nudgeFor(lastBackupDaysAgo = null, backedUpOpCount = 0))
+    }
+
+    @Test
+    fun `FR-I5 - given a backup older than 30 days then the reminder shows only if the ledger changed since`() = runTest(dispatcher) {
+        val group = GroupId("11111111-0000-4000-8000-000000000000")
+        ledger.append(group, OpPayload.CreateGroup("Trip", defaultCurrency = CurrencyCode("USD")))
+        val countAtBackup = ledger.totalOpCount()
+
+        assertFalse("unchanged since the backup: nothing new to protect", nudgeFor(31, countAtBackup))
+
+        ledger.append(group, OpPayload.AddMember(MemberId("0a000000-0000-4000-8000-000000000001"), "Alice"))
+        assertTrue("changed, and the backup is stale", nudgeFor(31, countAtBackup))
+        assertFalse("changed, but backed up recently", nudgeFor(29, countAtBackup))
     }
 }

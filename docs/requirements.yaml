@@ -289,9 +289,12 @@
 
 - id: FR-I5
   title: Backup reminder when the last backup is older than 30 days and the ledger changed
-  status: open
-  tests: []
-  note: "Implemented (GroupsViewModel.backupNudge and the banner card), untested."
+  status: covered
+  tests:
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given data and no backup ever then the reminder shows
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given a backup older than 30 days then the reminder shows only if the ledger changed since
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/GroupsViewModelsTest.kt :: given an empty app then there is nothing to remind about
+  note: "The banner composable itself has no Compose test."
 
 - id: FR-Y1
   title: Manual sync tier - join by QR or dibs link, share updates as an encrypted bundle
