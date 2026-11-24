@@ -19,11 +19,13 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -46,6 +48,7 @@ fun GroupsRoute(
     onImportFromSplitwise: () -> Unit,
     onBackUp: () -> Unit,
     modifier: Modifier = Modifier,
+    onJoinGroup: () -> Unit = {},
     viewModel: GroupsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -58,6 +61,7 @@ fun GroupsRoute(
         modifier = modifier,
         showBackupNudge = backupNudge,
         onBackUp = onBackUp,
+        onJoinGroup = onJoinGroup,
     )
 }
 
@@ -71,6 +75,7 @@ fun GroupsScreen(
     modifier: Modifier = Modifier,
     showBackupNudge: Boolean = false,
     onBackUp: () -> Unit = {},
+    onJoinGroup: () -> Unit = {},
 ) {
     when (uiState) {
         GroupsUiState.Loading -> Spacer(modifier)
@@ -86,6 +91,10 @@ fun GroupsScreen(
                     }
                     OutlinedButton(onClick = onImportFromSplitwise) {
                         Text(stringResource(R.string.groups_import_splitwise))
+                    }
+                    // FR-Y1: the third way in — someone already has a group and sent an invite.
+                    TextButton(onClick = onJoinGroup, modifier = Modifier.testTag("groups-join")) {
+                        Text(stringResource(R.string.groups_join))
                     }
                 }
             } else {
@@ -111,6 +120,11 @@ fun GroupsScreen(
                         }
                         items(archived, key = { it.id.value }) { card ->
                             GroupCard(card, onClick = { onOpenGroup(card.id) })
+                        }
+                    }
+                    item(key = "join") {
+                        TextButton(onClick = onJoinGroup, modifier = Modifier.testTag("groups-join")) {
+                            Text(stringResource(R.string.groups_join))
                         }
                     }
                 }

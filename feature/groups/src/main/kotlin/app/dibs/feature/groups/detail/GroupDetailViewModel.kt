@@ -45,6 +45,12 @@ data class GroupDetailUiState(
         }
 }
 
+/**
+ * What importing an update file produced: the [outcome] always, plus the names
+ * of members who claimed their place in this group through it.
+ */
+data class SyncNotice(val outcome: BundleSync.ImportOutcome, val newlyJoined: List<String> = emptyList())
+
 @HiltViewModel
 class GroupDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -59,8 +65,8 @@ class GroupDetailViewModel @Inject constructor(
     /** Bumped after share/import so the FR-Y4 chip refreshes without a ledger change. */
     private val syncTick = MutableStateFlow(0)
 
-    private val _syncEvents = MutableSharedFlow<BundleSync.ImportOutcome>(extraBufferCapacity = 1)
-    val syncEvents: SharedFlow<BundleSync.ImportOutcome> = _syncEvents.asSharedFlow()
+    private val _syncEvents = MutableSharedFlow<SyncNotice>(extraBufferCapacity = 1)
+    val syncEvents: SharedFlow<SyncNotice> = _syncEvents.asSharedFlow()
 
     val uiState: StateFlow<GroupDetailUiState> =
         combine(ledger.observeState(groupId), settingsStore.settings, syncTick) { state, settings, _ ->
@@ -78,10 +84,23 @@ class GroupDetailViewModel @Inject constructor(
     /** Applies a received bundle; every outcome surfaces as a specific message (FR-Y4). */
     fun importSyncBundle(bytes: ByteArray) {
         viewModelScope.launch {
-            _syncEvents.emit(bundleSync.importBundle(bytes))
+            val claimedBefore = claimedMembers()
+            val outcome = bundleSync.importBundle(bytes)
+            // SPEC §5.9: existing members are told who came in — there is no
+            // server to push it, so the moment of import is the notification.
+            val newlyJoined = if (outcome is BundleSync.ImportOutcome.Imported && outcome.groupId == groupId) {
+                (claimedMembers() - claimedBefore.keys).values.sorted()
+            } else {
+                emptyList()
+            }
+            _syncEvents.emit(SyncNotice(outcome, newlyJoined))
             syncTick.value += 1
         }
     }
+
+    private suspend fun claimedMembers(): Map<MemberId, String> = ledger.state(groupId).members.values
+        .filter { it.identityKey != null && !it.removed }
+        .associate { it.id to it.name }
 
     /**
      * Params are the *desired* values from the edit dialog (blank emoji =

@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.dibs.core.domain.crypto.HexBytes
+import app.dibs.core.domain.crypto.IdentityKeyPair
 import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.DuplicateMembers
 import app.dibs.core.domain.ledger.Handles
@@ -16,7 +17,9 @@ import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.InviteId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.settings.SettingsStore
+import app.dibs.core.domain.sync.BundleSync
 import app.dibs.core.domain.sync.GroupKeyStore
+import app.dibs.core.domain.sync.InviteFile
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,21 +42,47 @@ data class MemberRow(
      * muted monospace so the *name* never looks verified; only this is.
      */
     val fingerprint: String? = null,
+    /** Claimed under approval mode and not yet approved (SPEC §5.9). */
+    val pending: Boolean = false,
+    /** They came in through an invite this device's user created — the "joined via your invite" notice. */
+    val joinedViaMyInvite: Boolean = false,
+    /**
+     * Removal is offered only where the fold will accept it: no financial
+     * history (edge 13), and never yourself.
+     */
+    val canRemove: Boolean = false,
+)
+
+/** An invite that can still be used. */
+data class InviteRow(
+    val id: InviteId,
+    val expiresAtMillis: Long,
+    val usesLeft: Int,
+    val createdByMe: Boolean,
 )
 
 data class MembersUiState(
     val members: List<MemberRow> = emptyList(),
+    val openInvites: List<InviteRow> = emptyList(),
+    val approvalRequired: Boolean = false,
+    /**
+     * Whether this device's identity is a full member — the fold's condition
+     * for every signed membership op. When false, the management controls are
+     * hidden rather than shown and refused.
+     */
+    val canManage: Boolean = false,
 )
 
 /** What "Invite someone" can produce; every branch is a user-explainable state. */
 sealed interface InviteResult {
-    /** Show the QR / share the link; [expiresAtMillis] feeds the validity note. */
+    /** Show the QR / share the invite; [expiresAtMillis] feeds the validity note. */
     data class Ready(val link: InviteLink, val expiresAtMillis: Long) : InviteResult
 
     /** Someone else claimed first and we hold no claim — an existing member must invite us. */
     data object SelfNotClaimed : InviteResult
 }
 
+@Suppress("TooManyFunctions") // one function per member and membership action on the screen
 @HiltViewModel
 class MembersViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -61,6 +90,7 @@ class MembersViewModel @Inject constructor(
     private val settingsStore: SettingsStore,
     private val groupKeys: GroupKeyStore,
     private val identity: IdentitySource,
+    private val bundleSync: BundleSync,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]) { "groupId nav argument missing" })
@@ -73,7 +103,17 @@ class MembersViewModel @Inject constructor(
                 .flatMap { listOf(it.first, it.second) }
                 .toSet()
             val fingerprints = Handles.fingerprintsFor(state)
+            val myKey = identity.keyPair().publicKey
+            val me = state.members.values.firstOrNull { it.identityKey == myKey && !it.removed }
+            val canManage = me != null && me.active && !me.pending
+            val myInvites = state.invites.values.filter { it.inviterKey == myKey }.map { it.id }.toSet()
             MembersUiState(
+                openInvites = state.invites.values
+                    .filter { !it.revoked && it.uses < it.maxUses }
+                    .map { InviteRow(it.id, it.expiresAtMillis, it.maxUses - it.uses, it.inviterKey == myKey) }
+                    .sortedWith(compareBy({ it.expiresAtMillis }, { it.id })),
+                approvalRequired = state.joinApprovalRequired == true,
+                canManage = canManage,
                 members = state.members.values
                     .filterNot { it.removed }
                     .map { member ->
@@ -84,6 +124,9 @@ class MembersViewModel @Inject constructor(
                             isSelf = settings.selfMembers[groupId] == member.id,
                             duplicateName = member.id in duplicates,
                             fingerprint = fingerprints[member.id],
+                            pending = member.pending,
+                            joinedViaMyInvite = member.claimedViaInvite in myInvites,
+                            canRemove = canManage && member.id != me?.id && !state.memberHasHistory(member.id),
                         )
                     }
                     .sortedWith(
@@ -156,6 +199,33 @@ class MembersViewModel @Inject constructor(
             signature = HexBytes.fromHex(payload.signature),
         )
         return InviteResult.Ready(link, expiresAtMillis)
+    }
+
+    /**
+     * The invite as one file: the link in front of the sealed group (FR-Y1).
+     * Whoever opens it with Dibs can join in one step, with the group's
+     * contents already there — see [InviteFile].
+     */
+    suspend fun inviteFile(link: InviteLink): ByteArray = InviteFile.encode(link, bundleSync.exportBundle(groupId))
+
+    /** Closes an invite nobody should use any more — a link sent to the wrong chat, say. */
+    fun revokeInvite(inviteId: InviteId) = signed { keys -> SignedPayloads.revokeInvite(groupId, inviteId, keys) }
+
+    /** SPEC §5.9 approval mode: new joiners wait until a member approves them. */
+    fun setApprovalRequired(required: Boolean) =
+        signed { keys -> SignedPayloads.setJoinPolicy(groupId, required, keys) }
+
+    fun approveMember(memberId: MemberId) = signed { keys -> SignedPayloads.approveMember(groupId, memberId, keys) }
+
+    /**
+     * Removes a member with no history — the answer to "who is this that
+     * joined via my invite?". Members with history can only be deactivated;
+     * the row never offers this for them, and the fold would refuse it anyway.
+     */
+    fun removeMember(memberId: MemberId) = signed { keys -> SignedPayloads.removeMember(groupId, memberId, keys) }
+
+    private fun signed(build: (IdentityKeyPair) -> OpPayload) {
+        viewModelScope.launch { ledger.append(groupId, build(identity.keyPair())) }
     }
 
     private companion object {

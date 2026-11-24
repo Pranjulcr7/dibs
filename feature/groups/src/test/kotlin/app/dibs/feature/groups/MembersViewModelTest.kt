@@ -13,6 +13,7 @@ import app.dibs.core.domain.settings.UserSettings
 import app.dibs.core.domain.sync.BundleSync
 import app.dibs.core.domain.sync.SyncStatus
 import app.dibs.feature.groups.detail.GroupDetailViewModel
+import app.dibs.feature.groups.detail.SyncNotice
 import app.dibs.feature.groups.members.InviteResult
 import app.dibs.feature.groups.members.MembersViewModel
 import kotlinx.coroutines.Dispatchers
@@ -74,6 +75,7 @@ class MembersViewModelTest {
         settings,
         groupKeys,
         identity,
+        bundleSync,
     ).apply { wallClock = { NOW } }
 
     private fun detailViewModel() = GroupDetailViewModel(
@@ -257,12 +259,12 @@ class MembersViewModelTest {
 
         viewModel.syncEvents.test {
             viewModel.importSyncBundle(byteArrayOf(9, 9))
-            assertEquals(rejected, awaitItem())
+            assertEquals(SyncNotice(rejected), awaitItem())
             expectNoEvents()
 
             bundleSync.nextImportOutcome = BundleSync.ImportOutcome.Imported(groupId, 3, 0, emptyMap())
             viewModel.importSyncBundle(byteArrayOf(8))
-            assertEquals(BundleSync.ImportOutcome.Imported(groupId, 3, 0, emptyMap()), awaitItem())
+            assertEquals(SyncNotice(BundleSync.ImportOutcome.Imported(groupId, 3, 0, emptyMap())), awaitItem())
             cancelAndConsumeRemainingEvents()
         }
         assertEquals(2, bundleSync.imported.size)

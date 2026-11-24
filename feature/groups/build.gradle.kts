@@ -21,6 +21,9 @@ dependencies {
     // QR rendering for invite links (M6); pure Java, present in both flavors.
     implementation(libs.zxing.core)
 
+    // Test-only: the two-device join tests run the real sealing and gating
+    // end to end. Main code still sees nothing but the domain's BundleSync seam.
+    testImplementation(project(":core:sync"))
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)

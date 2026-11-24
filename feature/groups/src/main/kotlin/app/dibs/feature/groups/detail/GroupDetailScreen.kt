@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -109,7 +110,17 @@ fun GroupDetailRoute(
     }
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(Unit) {
-        viewModel.syncEvents.collect { outcome -> snackbarHostState.showSnackbar(outcome.message(context)) }
+        viewModel.syncEvents.collect { notice ->
+            snackbarHostState.showSnackbar(notice.outcome.message(context))
+            notice.newlyJoined.forEach { name ->
+                val result = snackbarHostState.showSnackbar(
+                    message = context.getString(R.string.sync_joined_notice, name),
+                    actionLabel = context.getString(R.string.sync_joined_notice_action),
+                )
+                // The Members screen is where "joined with your invite" and Remove live.
+                if (result == SnackbarResult.ActionPerformed) onOpenMembers()
+            }
+        }
     }
     GroupDetailScreen(
         uiState = uiState,

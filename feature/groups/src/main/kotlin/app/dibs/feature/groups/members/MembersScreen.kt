@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.feature.groups.members
 
-import android.content.Intent
 import android.icu.text.DateFormat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -30,6 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -46,13 +47,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.dibs.core.domain.ledger.InviteLink
+import app.dibs.core.domain.model.InviteId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.ui.components.MemberAvatar
 import app.dibs.core.ui.theme.Dimens
 import app.dibs.feature.groups.R
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 
 @Composable
@@ -69,17 +74,25 @@ fun MembersRoute(onBack: () -> Unit, viewModel: MembersViewModel = hiltViewModel
         onDeactivateMember = viewModel::deactivateMember,
         onReactivateMember = viewModel::reactivateMember,
         onInvite = { scope.launch { invite = viewModel.createInvite() } },
+        management = MemberManagementActions(
+            onRevokeInvite = viewModel::revokeInvite,
+            onSetApprovalRequired = viewModel::setApprovalRequired,
+            onApproveMember = viewModel::approveMember,
+            onRemoveMember = viewModel::removeMember,
+        ),
     )
     when (val current = invite) {
         is InviteResult.Ready -> InviteDialog(
             link = current.link,
             expiresAtMillis = current.expiresAtMillis,
             onShare = {
-                val send = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, current.link.encode())
+                // One file carrying the link and the group's data: the person
+                // joining opens it and is in, with nothing else to send them.
+                scope.launch {
+                    val bytes = viewModel.inviteFile(current.link)
+                    val uri = withContext(Dispatchers.IO) { InviteSharing.stage(context, bytes) }
+                    context.startActivity(InviteSharing.shareIntent(context, uri))
                 }
-                context.startActivity(Intent.createChooser(send, context.getString(R.string.invite_share_link)))
             },
             onDismiss = { invite = null },
         )
@@ -94,6 +107,14 @@ fun MembersRoute(onBack: () -> Unit, viewModel: MembersViewModel = hiltViewModel
         null -> Unit
     }
 }
+
+/** The signed membership actions (SPEC §5.9), bundled so the screen stays previewable. */
+data class MemberManagementActions(
+    val onRevokeInvite: (InviteId) -> Unit = {},
+    val onSetApprovalRequired: (Boolean) -> Unit = {},
+    val onApproveMember: (MemberId) -> Unit = {},
+    val onRemoveMember: (MemberId) -> Unit = {},
+)
 
 /**
  * QR + link for one invite (SPEC §5.9). The QR is rendered locally with zxing —
@@ -129,7 +150,11 @@ private fun InviteDialog(link: InviteLink, expiresAtMillis: Long, onShare: () ->
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onShare) { Text(stringResource(R.string.invite_share_link)) } },
+        confirmButton = {
+            TextButton(onClick = onShare, modifier = Modifier.testTag("invite-share")) {
+                Text(stringResource(R.string.invite_share_link))
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.invite_done)) } },
     )
 }
@@ -150,6 +175,7 @@ fun MembersScreen(
     onReactivateMember: (MemberId) -> Unit,
     modifier: Modifier = Modifier,
     onInvite: () -> Unit = {},
+    management: MemberManagementActions = MemberManagementActions(),
 ) {
     Scaffold(
         modifier = modifier,
@@ -183,7 +209,10 @@ fun MembersScreen(
             val (active, inactive) = uiState.members.partition { it.active }
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(active, key = { it.id.value }) { member ->
-                    MemberRowItem(member, onRenameMember, onDeactivateMember, onReactivateMember)
+                    MemberRowItem(member, onRenameMember, onDeactivateMember, onReactivateMember, management)
+                }
+                if (uiState.canManage) {
+                    item(key = "joining") { JoiningSection(uiState, management) }
                 }
                 if (inactive.isNotEmpty()) {
                     item(key = "inactive-header") {
@@ -202,7 +231,7 @@ fun MembersScreen(
                         }
                     }
                     items(inactive, key = { it.id.value }) { member ->
-                        MemberRowItem(member, onRenameMember, onDeactivateMember, onReactivateMember)
+                        MemberRowItem(member, onRenameMember, onDeactivateMember, onReactivateMember, management)
                     }
                 }
             }
@@ -242,6 +271,7 @@ private fun MemberRowItem(
     onRenameMember: (MemberId, String) -> Unit,
     onDeactivateMember: (MemberId) -> Unit,
     onReactivateMember: (MemberId) -> Unit,
+    management: MemberManagementActions = MemberManagementActions(),
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
@@ -271,6 +301,11 @@ private fun MemberRowItem(
                     AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_you)) })
                 }
             }
+            if (member.pending) {
+                MemberNote(stringResource(R.string.members_pending))
+            } else if (member.joinedViaMyInvite) {
+                MemberNote(stringResource(R.string.members_joined_via_invite))
+            }
             if (member.duplicateName) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -286,6 +321,12 @@ private fun MemberRowItem(
                     )
                 }
             }
+        }
+        if (member.pending) {
+            TextButton(
+                onClick = { management.onApproveMember(member.id) },
+                modifier = Modifier.testTag("approve-${member.id.value}"),
+            ) { Text(stringResource(R.string.members_approve)) }
         }
         IconButton(onClick = { menuOpen = true }) {
             Icon(
@@ -318,6 +359,16 @@ private fun MemberRowItem(
                     },
                 )
             }
+            if (member.canRemove) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.members_remove)) },
+                    onClick = {
+                        menuOpen = false
+                        management.onRemoveMember(member.id)
+                    },
+                    modifier = Modifier.testTag("remove-${member.id.value}"),
+                )
+            }
         }
     }
     if (renaming) {
@@ -329,6 +380,58 @@ private fun MemberRowItem(
             },
             onDismiss = { renaming = false },
         )
+    }
+}
+
+@Composable
+private fun MemberNote(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+/** Who may join and how: the approval switch and the invites that are still usable. */
+@Composable
+private fun JoiningSection(uiState: MembersUiState, management: MemberManagementActions) {
+    Column(Modifier.padding(top = Dimens.spacingMd)) {
+        Text(
+            stringResource(R.string.members_joining_header),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = uiState.approvalRequired,
+                    role = Role.Switch,
+                    onValueChange = management.onSetApprovalRequired,
+                )
+                .padding(vertical = Dimens.spacingSm)
+                .testTag("approval-toggle"),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.members_approval_title), style = MaterialTheme.typography.bodyLarge)
+                MemberNote(stringResource(R.string.members_approval_body))
+            }
+            // The row is the control; the switch only shows its state.
+            Switch(checked = uiState.approvalRequired, onCheckedChange = null)
+        }
+        uiState.openInvites.forEach { invite ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    stringResource(
+                        R.string.members_invite_open,
+                        DateFormat.getDateInstance().format(Date(invite.expiresAtMillis)),
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = { management.onRevokeInvite(invite.id) },
+                    modifier = Modifier.testTag("revoke-${invite.id.value}"),
+                ) { Text(stringResource(R.string.members_invite_revoke)) }
+            }
+        }
     }
 }
 
