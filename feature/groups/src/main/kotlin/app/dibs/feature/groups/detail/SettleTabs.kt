@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.feature.groups.detail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -29,8 +32,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import app.dibs.core.domain.ledger.DuplicateSettlements
 import app.dibs.core.domain.ledger.GroupState
+import app.dibs.core.domain.ledger.MemberStatement
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
@@ -51,6 +56,13 @@ internal fun BalancesTabContent(
     onWriteOff: (from: MemberId, to: MemberId, amount: Money, currency: CurrencyCode) -> Unit,
 ) {
     var simplify by rememberSaveable { mutableStateOf(false) }
+    // FR-S5: tapping a member's net opens what it is made of. Saved as the raw
+    // id so the open statement survives rotation.
+    var statementFor by rememberSaveable { mutableStateOf<String?>(null) }
+    statementFor?.let { memberId ->
+        MemberStatementContent(state, MemberId(memberId), selfMember) { statementFor = null }
+        return
+    }
     val balances = state.balances()
     if (balances.isEmpty() || balances.values.all { list -> list.all { it.net.isZero } }) {
         EmptyState(
@@ -70,7 +82,12 @@ internal fun BalancesTabContent(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = Dimens.spacingXs),
+                        .heightIn(min = Dimens.minTouchTarget)
+                        .clickable(
+                            onClickLabel = stringResource(R.string.statement_open),
+                            role = Role.Button,
+                        ) { statementFor = balance.memberId.value }
+                        .testTag("net-${balance.memberId.value}"),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
@@ -103,13 +120,20 @@ internal fun BalancesTabContent(
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.weight(1f),
                     )
-                    Text(stringResource(R.string.balances_simplify), style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.width(Dimens.spacingXs))
-                    Switch(
-                        checked = simplify,
-                        onCheckedChange = { simplify = it },
-                        modifier = Modifier.testTag("simplify-toggle"),
-                    )
+                    // The words and the switch are one control (NFR-10): tapping
+                    // "Simplify debts" toggles it, and a screen reader announces
+                    // "Simplify debts, switch, off" instead of a nameless switch.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .heightIn(min = Dimens.minTouchTarget)
+                            .toggleable(value = simplify, role = Role.Switch, onValueChange = { simplify = it })
+                            .testTag("simplify-toggle"),
+                    ) {
+                        Text(stringResource(R.string.balances_simplify), style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.width(Dimens.spacingXs))
+                        Switch(checked = simplify, onCheckedChange = null)
+                    }
                 }
                 if (simplify) {
                     Text(
@@ -406,5 +430,89 @@ private fun <T> androidx.compose.foundation.lazy.LazyListScope.items2(
 ) {
     items.forEach { element ->
         item(key = key(element)) { itemContent(element) }
+    }
+}
+
+/**
+ * FR-S5: one member's totals and the expenses behind them. Every figure here
+ * comes from [MemberStatement], whose net is property-tested equal to the
+ * balance the user tapped — the drill-down cannot contradict the list.
+ */
+@Composable
+internal fun MemberStatementContent(state: GroupState, memberId: MemberId, selfMember: MemberId?, onClose: () -> Unit) {
+    val statements = MemberStatement.of(state, memberId)
+    val moneyColors = LocalMoneyColors.current
+    val name = if (memberId == selfMember) stringResource(R.string.detail_you) else state.memberName(memberId)
+    LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(Dimens.spacingMd)) {
+        item(key = "statement-header") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.statement_title, name),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = onClose, modifier = Modifier.testTag("statement-close")) {
+                    Text(stringResource(R.string.statement_close))
+                }
+            }
+        }
+        if (statements.isEmpty()) {
+            item(key = "statement-empty") { Text(stringResource(R.string.statement_empty)) }
+        }
+        statements.forEach { statement ->
+            val currency = statement.currency
+            item(key = "totals-${currency.value}") {
+                Column(Modifier.padding(vertical = Dimens.spacingSm)) {
+                    StatementTotal(R.string.statement_paid, statement.paid, currency)
+                    StatementTotal(R.string.statement_share, statement.share, currency)
+                    if (!statement.paymentsMade.isZero) {
+                        StatementTotal(R.string.statement_payments_made, statement.paymentsMade, currency)
+                    }
+                    if (!statement.paymentsReceived.isZero) {
+                        StatementTotal(R.string.statement_payments_received, statement.paymentsReceived, currency)
+                    }
+                    Row {
+                        Text(
+                            stringResource(R.string.statement_net),
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            MoneyFormatter.format(statement.net, currency),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = when {
+                                statement.net.isPositive -> moneyColors.positive
+                                statement.net.isNegative -> moneyColors.negative
+                                else -> moneyColors.neutral
+                            },
+                            modifier = Modifier.testTag("statement-net-${currency.value}"),
+                        )
+                    }
+                    HorizontalDivider(Modifier.padding(top = Dimens.spacingSm))
+                }
+            }
+            items2(statement.lines, key = { "line-${currency.value}-${it.expenseId.value}" }) { line ->
+                Column(Modifier.padding(vertical = Dimens.spacingXs)) {
+                    Text(line.description, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        stringResource(
+                            R.string.statement_line,
+                            MoneyFormatter.format(line.paid, currency),
+                            MoneyFormatter.format(line.share, currency),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatementTotal(label: Int, amount: Money, currency: CurrencyCode) {
+    Row {
+        Text(stringResource(label), modifier = Modifier.weight(1f))
+        Text(MoneyFormatter.format(amount, currency))
     }
 }

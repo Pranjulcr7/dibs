@@ -166,9 +166,12 @@
 
 - id: FR-S5
   title: Per-member detail with total paid, total owed, net, and the expenses behind each
-  status: open
-  tests: []
-  note: "Feature does not exist (no member detail screen)."
+  status: covered
+  tests:
+    - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/MemberStatementTest.kt :: given expenses and a repayment then the statement shows paid, share, payments and the net they add up to
+    - core/domain/src/test/kotlin/app/dibs/core/domain/ledger/MemberStatementTest.kt :: given any ledger then every member
+    - feature/groups/src/test/kotlin/app/dibs/feature/groups/SettleTest.kt :: given a tapped balance then the member
+  note: ""
 
 - id: FR-S6
   title: Remind produces a shareable plain-text summary through the share sheet

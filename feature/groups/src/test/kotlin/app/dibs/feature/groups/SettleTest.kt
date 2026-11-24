@@ -2,6 +2,7 @@
 package app.dibs.feature.groups
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -182,6 +183,28 @@ class SettleTest {
             DibsTheme { SettleTabContent(state, alice) { _, _, _, _ -> } }
         }
         compose.onNodeWithTag("duplicate-settlement-hint").assertIsDisplayed()
+    }
+
+    @Test
+    fun `FR-S5 - given a tapped balance then the member's totals and the expenses behind them are shown, and close returns`() {
+        val state = kotlinx.coroutines.runBlocking {
+            seedDebt()
+            ledger.state(groupId)
+        }
+        compose.setContent {
+            DibsTheme { BalancesTabContent(state, alice) { _, _, _, _ -> } }
+        }
+
+        compose.onNodeWithTag("net-${bob.value}").performClick()
+
+        compose.onNodeWithText("Bob — the details").assertIsDisplayed()
+        compose.onNodeWithText("dinner").assertIsDisplayed()
+        compose.onNodeWithText("Paid \$0.00 · share \$5.00").assertIsDisplayed()
+        // The drill-down's balance is the number that was tapped.
+        compose.onNodeWithTag("statement-net-USD").assertTextEquals("-\$5.00")
+
+        compose.onNodeWithTag("statement-close").performClick()
+        compose.onNodeWithText("Who owes whom").assertIsDisplayed()
     }
 
     @Test

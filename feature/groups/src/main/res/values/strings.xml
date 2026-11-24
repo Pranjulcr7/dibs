@@ -62,6 +62,16 @@
     <string name="expenses_deleted_rounding">%1$s absorbed %2$s rounding</string>
     <string name="activity_row_in">in %1$s</string>
     <string name="quick_add_pick_group">Add expense to…</string>
+    <string name="statement_open">See what this is made of</string>
+    <string name="statement_title">%1$s — the details</string>
+    <string name="statement_close">Back to balances</string>
+    <string name="statement_empty">No expenses or payments yet.</string>
+    <string name="statement_paid">Paid for the group</string>
+    <string name="statement_share">Share of expenses</string>
+    <string name="statement_payments_made">Paid back to others</string>
+    <string name="statement_payments_received">Received from others</string>
+    <string name="statement_net">Balance</string>
+    <string name="statement_line">Paid %1$s · share %2$s</string>
     <string name="balances_members_header">Net balances</string>
     <string name="balances_pairs_header">Who owes whom</string>
     <string name="balances_simplify">Simplify debts</string>
