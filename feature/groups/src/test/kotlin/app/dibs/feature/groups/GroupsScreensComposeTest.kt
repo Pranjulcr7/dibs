@@ -95,6 +95,37 @@ class GroupsScreensComposeTest {
     }
 
     @Test
+    fun `given groups already exist then creating another, importing, and joining are all still reachable`() {
+        // Regression: these three lived only on the empty state, so the first
+        // group was also the last one a person could ever create.
+        var created = false
+        var imported = false
+        var joined = false
+        compose.setContent {
+            DibsTheme {
+                GroupsScreen(
+                    uiState = GroupsUiState.Content(
+                        listOf(GroupCardUi(GroupId("g1"), "Goa trip", "✈️", 4, Money(4250), CurrencyCode("USD"))),
+                    ),
+                    onOpenGroup = {},
+                    onCreateGroup = { created = true },
+                    onImportFromSplitwise = { imported = true },
+                    onJoinGroup = { joined = true },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Goa trip").assertIsDisplayed()
+        compose.onNodeWithTag("groups-create").performClick()
+        compose.onNodeWithTag("groups-import").performClick()
+        compose.onNodeWithTag("groups-join").performClick()
+
+        assertTrue(created)
+        assertTrue(imported)
+        assertTrue(joined)
+    }
+
+    @Test
     fun `given members then self chip, duplicate hint, and deactivated section render`() {
         compose.setContent {
             DibsTheme {

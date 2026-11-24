@@ -122,9 +122,31 @@ fun GroupsScreen(
                             GroupCard(card, onClick = { onOpenGroup(card.id) })
                         }
                     }
-                    item(key = "join") {
-                        TextButton(onClick = onJoinGroup, modifier = Modifier.testTag("groups-join")) {
-                            Text(stringResource(R.string.groups_join))
+                    // With groups on screen the empty state's buttons are gone, and
+                    // the FAB adds an expense — so the ways to get another group
+                    // have to live here, or there would be none.
+                    item(key = "more-groups") {
+                        Column(Modifier.fillMaxWidth()) {
+                            OutlinedButton(
+                                onClick = onCreateGroup,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("groups-create"),
+                            ) { Text(stringResource(R.string.groups_create)) }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                TextButton(
+                                    onClick = onImportFromSplitwise,
+                                    modifier = Modifier.testTag("groups-import"),
+                                ) {
+                                    Text(stringResource(R.string.groups_import_splitwise))
+                                }
+                                TextButton(onClick = onJoinGroup, modifier = Modifier.testTag("groups-join")) {
+                                    Text(stringResource(R.string.groups_join))
+                                }
+                            }
                         }
                     }
                 }
