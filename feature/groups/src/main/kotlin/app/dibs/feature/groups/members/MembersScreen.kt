@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package app.dibs.feature.groups.members
 
+import android.content.Intent
+import android.icu.text.DateFormat
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -8,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,21 +38,29 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
+import app.dibs.core.domain.ledger.InviteLink
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.ui.components.MemberAvatar
 import app.dibs.core.ui.theme.Dimens
 import app.dibs.feature.groups.R
+import kotlinx.coroutines.launch
+import java.util.Date
 
 @Composable
 fun MembersRoute(onBack: () -> Unit, viewModel: MembersViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var invite by remember { mutableStateOf<InviteResult?>(null) }
     MembersScreen(
         uiState = uiState,
         onBack = onBack,
@@ -56,6 +68,69 @@ fun MembersRoute(onBack: () -> Unit, viewModel: MembersViewModel = hiltViewModel
         onRenameMember = viewModel::renameMember,
         onDeactivateMember = viewModel::deactivateMember,
         onReactivateMember = viewModel::reactivateMember,
+        onInvite = { scope.launch { invite = viewModel.createInvite() } },
+    )
+    when (val current = invite) {
+        is InviteResult.Ready -> InviteDialog(
+            link = current.link,
+            expiresAtMillis = current.expiresAtMillis,
+            onShare = {
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, current.link.encode())
+                }
+                context.startActivity(Intent.createChooser(send, context.getString(R.string.invite_share_link)))
+            },
+            onDismiss = { invite = null },
+        )
+        InviteResult.SelfNotClaimed -> AlertDialog(
+            onDismissRequest = { invite = null },
+            title = { Text(stringResource(R.string.invite_not_claimed_title)) },
+            text = { Text(stringResource(R.string.invite_not_claimed_body)) },
+            confirmButton = {
+                TextButton(onClick = { invite = null }) { Text(stringResource(R.string.invite_done)) }
+            },
+        )
+        null -> Unit
+    }
+}
+
+/**
+ * QR + link for one invite (SPEC §5.9). The QR is rendered locally with zxing —
+ * the link (which carries the group key) never touches any service.
+ */
+@Composable
+private fun InviteDialog(link: InviteLink, expiresAtMillis: Long, onShare: () -> Unit, onDismiss: () -> Unit) {
+    val encoded = link.encode()
+    val qr = remember(encoded) { qrBitmap(encoded) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.invite_title)) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Image(
+                    bitmap = qr,
+                    contentDescription = stringResource(R.string.invite_qr_description),
+                    modifier = Modifier.size(Dimens.inviteQrSize),
+                )
+                Spacer(Modifier.height(Dimens.spacingSm))
+                Text(
+                    stringResource(
+                        R.string.invite_validity,
+                        DateFormat.getDateInstance().format(Date(expiresAtMillis)),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    stringResource(R.string.invite_next_step),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onShare) { Text(stringResource(R.string.invite_share_link)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.invite_done)) } },
     )
 }
 
@@ -74,6 +149,7 @@ fun MembersScreen(
     onDeactivateMember: (MemberId) -> Unit,
     onReactivateMember: (MemberId) -> Unit,
     modifier: Modifier = Modifier,
+    onInvite: () -> Unit = {},
 ) {
     Scaffold(
         modifier = modifier,
@@ -86,6 +162,11 @@ fun MembersScreen(
                             Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.detail_back),
                         )
+                    }
+                },
+                actions = {
+                    TextButton(onClick = onInvite, modifier = Modifier.testTag("invite-action")) {
+                        Text(stringResource(R.string.invite_action))
                     }
                 },
             )

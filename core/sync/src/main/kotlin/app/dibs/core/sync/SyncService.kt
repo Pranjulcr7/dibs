@@ -6,6 +6,7 @@ import app.dibs.core.domain.ledger.DeviceId
 import app.dibs.core.domain.ledger.GroupLedger
 import app.dibs.core.domain.ledger.Ledger
 import app.dibs.core.domain.model.GroupId
+import app.dibs.core.domain.sync.BundleSync
 import app.dibs.core.domain.sync.GroupKeyStore
 import app.dibs.core.domain.sync.SyncMetaStore
 import app.dibs.core.domain.sync.VectorClock
@@ -36,38 +37,10 @@ class SyncService(
     private val identity: IdentitySource,
     private val deviceId: DeviceId,
     private val wallClock: () -> Long = System::currentTimeMillis,
-) {
-
-    sealed interface ImportOutcome {
-        /**
-         * [behind] is non-empty when the sender attested to ops this bundle did
-         * not carry and we still lack (edge 75) — "some changes may be missing".
-         */
-        data class Imported(
-            val groupId: GroupId,
-            val opsAdded: Int,
-            val skippedUnknownOps: Int,
-            val behind: Map<DeviceId, Long>,
-        ) : ImportOutcome
-
-        /** We hold no key for this group — the join flow, not the import flow. */
-        data class NoKeyForGroup(val groupId: GroupId) : ImportOutcome
-
-        data object NotABundle : ImportOutcome
-
-        data class NeedsNewerApp(val theirMajor: Int) : ImportOutcome
-
-        /** Wrong key or any tampered byte — deliberately indistinguishable (edge 27). */
-        data object RejectedTamperedOrWrongKey : ImportOutcome
-
-        data object RejectedBadSignature : ImportOutcome
-
-        /** Valid crypto, but the signer is not a claimed member of the group (AUDIT T1). */
-        data class RejectedUnknownSender(val groupId: GroupId) : ImportOutcome
-    }
+) : BundleSync {
 
     /** Seals every op of the group; creates the group key if none exists yet. */
-    suspend fun exportBundle(groupId: GroupId): ByteArray {
+    override suspend fun exportBundle(groupId: GroupId): ByteArray {
         val ops = ledger.allOps(groupId)
         val bytes = SyncBundles.encode(
             groupId = groupId,
@@ -81,16 +54,16 @@ class SyncService(
     }
 
     @Suppress("ReturnCount") // gates, in order; each exit is a distinct user-facing outcome
-    suspend fun importBundle(bytes: ByteArray): ImportOutcome {
-        val groupId = SyncBundles.peekGroupId(bytes) ?: return ImportOutcome.NotABundle
-        val key = keys.keyFor(groupId) ?: return ImportOutcome.NoKeyForGroup(groupId)
+    override suspend fun importBundle(bytes: ByteArray): BundleSync.ImportOutcome {
+        val groupId = SyncBundles.peekGroupId(bytes) ?: return BundleSync.ImportOutcome.NotABundle
+        val key = keys.keyFor(groupId) ?: return BundleSync.ImportOutcome.NoKeyForGroup(groupId)
 
         val decoded = when (val result = SyncBundles.decode(bytes, key)) {
             is SyncBundles.Result.Decoded -> result
-            SyncBundles.Result.NotABundle -> return ImportOutcome.NotABundle
-            is SyncBundles.Result.MajorVersionMismatch -> return ImportOutcome.NeedsNewerApp(result.theirs)
-            SyncBundles.Result.WrongKeyOrTampered -> return ImportOutcome.RejectedTamperedOrWrongKey
-            SyncBundles.Result.BadSignature -> return ImportOutcome.RejectedBadSignature
+            SyncBundles.Result.NotABundle -> return BundleSync.ImportOutcome.NotABundle
+            is SyncBundles.Result.MajorVersionMismatch -> return BundleSync.ImportOutcome.NeedsNewerApp(result.theirs)
+            SyncBundles.Result.WrongKeyOrTampered -> return BundleSync.ImportOutcome.RejectedTamperedOrWrongKey
+            SyncBundles.Result.BadSignature -> return BundleSync.ImportOutcome.RejectedBadSignature
         }
 
         val existing = ledger.allOps(groupId)
@@ -102,7 +75,7 @@ class SyncService(
             .mapNotNull { it.identityKey }
             .toSet()
         if (claimedKeys.isNotEmpty() && decoded.senderKey !in claimedKeys) {
-            return ImportOutcome.RejectedUnknownSender(groupId)
+            return BundleSync.ImportOutcome.RejectedUnknownSender(groupId)
         }
 
         val known = existing.asSequence().map { it.id }.toSet()
@@ -111,7 +84,7 @@ class SyncService(
         meta.recordImported(groupId, wallClock())
 
         val localClock = VectorClock.of(ledger.allOps(groupId))
-        return ImportOutcome.Imported(
+        return BundleSync.ImportOutcome.Imported(
             groupId = groupId,
             opsAdded = fresh.size,
             skippedUnknownOps = decoded.skippedUnknownOps,

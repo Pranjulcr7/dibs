@@ -17,6 +17,7 @@ import app.dibs.core.domain.model.GroupId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
+import app.dibs.core.domain.sync.BundleSync
 import app.dibs.core.domain.sync.GroupKeyStore
 import app.dibs.core.domain.sync.SyncMeta
 import app.dibs.core.domain.sync.SyncMetaStore
@@ -147,7 +148,7 @@ class SyncServiceTest {
 
         // The receiver got the key through the invite link (adopt), not the bundle.
         val receiver = device(4, sharedKeys)
-        val outcome = receiver.sync.importBundle(bundle) as SyncService.ImportOutcome.Imported
+        val outcome = receiver.sync.importBundle(bundle) as BundleSync.ImportOutcome.Imported
         assertEquals(5, outcome.opsAdded)
         assertEquals(0, outcome.skippedUnknownOps)
         assertTrue(outcome.behind.isEmpty())
@@ -196,7 +197,7 @@ class SyncServiceTest {
 
         val outcome = receiver.sync.importBundle(forged)
 
-        assertEquals(SyncService.ImportOutcome.RejectedUnknownSender(group), outcome)
+        assertEquals(BundleSync.ImportOutcome.RejectedUnknownSender(group), outcome)
         assertArrayEquals(beforeBytes, receiver.ledger.state(group).canonicalBytes())
     }
 
@@ -211,7 +212,7 @@ class SyncServiceTest {
         val receiver = device(4, sharedKeys)
         val outcome = receiver.sync.importBundle(bundle)
 
-        assertTrue(outcome is SyncService.ImportOutcome.Imported)
+        assertTrue(outcome is BundleSync.ImportOutcome.Imported)
     }
 
     @Test
@@ -222,7 +223,7 @@ class SyncServiceTest {
         val bundle = sender.sync.exportBundle(group)
 
         val receiver = device(4) // separate, empty key store
-        assertEquals(SyncService.ImportOutcome.NoKeyForGroup(group), receiver.sync.importBundle(bundle))
+        assertEquals(BundleSync.ImportOutcome.NoKeyForGroup(group), receiver.sync.importBundle(bundle))
     }
 
     @Test
@@ -235,7 +236,7 @@ class SyncServiceTest {
 
         val receiver = device(4, sharedKeys)
         receiver.sync.importBundle(bundle)
-        val second = receiver.sync.importBundle(bundle) as SyncService.ImportOutcome.Imported
+        val second = receiver.sync.importBundle(bundle) as BundleSync.ImportOutcome.Imported
 
         assertEquals(0, second.opsAdded)
     }
@@ -244,7 +245,7 @@ class SyncServiceTest {
     fun `given garbage then import says not-a-bundle`() = runTest {
         val receiver = device(4)
         assertEquals(
-            SyncService.ImportOutcome.NotABundle,
+            BundleSync.ImportOutcome.NotABundle,
             receiver.sync.importBundle("junk mail".toByteArray()),
         )
     }

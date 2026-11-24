@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<paths>
+    <!-- Sealed sync bundles staged for the share sheet; nothing else is exposed. -->
+    <cache-path name="sync" path="sync/" />
+</paths>

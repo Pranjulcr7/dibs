@@ -32,26 +32,32 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import app.dibs.core.domain.ledger.GroupState
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
+import app.dibs.core.domain.sync.SyncStatus
 import app.dibs.core.ui.components.EmptyState
 import app.dibs.core.ui.money.MoneyFormatter
 import app.dibs.core.ui.theme.Dimens
@@ -89,6 +95,22 @@ fun GroupDetailRoute(
             }
         }
     }
+    val importSyncLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val bytes = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                }
+                if (bytes != null) viewModel.importSyncBundle(bytes)
+            }
+        }
+    }
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.syncEvents.collect { outcome -> snackbarHostState.showSnackbar(outcome.message(context)) }
+    }
     GroupDetailScreen(
         uiState = uiState,
         onBack = onBack,
@@ -105,6 +127,17 @@ fun GroupDetailRoute(
             val name = uiState.state?.meta?.name?.ifBlank { null } ?: "dibs-group"
             exportLauncher.launch("$name.csv")
         },
+        onShareSync = {
+            scope.launch {
+                val bytes = viewModel.exportSyncBundle()
+                val uri = withContext(Dispatchers.IO) {
+                    SyncSharing.stage(context, bytes, uiState.state?.meta?.name)
+                }
+                context.startActivity(SyncSharing.shareIntent(context, uri))
+            }
+        },
+        onImportSync = { importSyncLauncher.launch(arrayOf("*/*")) },
+        snackbarHostState = snackbarHostState,
     )
 }
 
@@ -125,6 +158,9 @@ fun GroupDetailScreen(
     modifier: Modifier = Modifier,
     onExportCsv: () -> Unit = {},
     onScanReceipt: () -> Unit = {},
+    onShareSync: () -> Unit = {},
+    onImportSync: () -> Unit = {},
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val state = uiState.state ?: return
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -132,6 +168,7 @@ fun GroupDetailScreen(
 
     Scaffold(
         modifier = modifier,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text(listOfNotNull(state.meta?.emoji, state.meta?.name).joinToString(" ")) },
@@ -150,7 +187,7 @@ fun GroupDetailScreen(
                     IconButton(onClick = onOpenMembers) {
                         Icon(Icons.Filled.Person, contentDescription = stringResource(R.string.detail_members_action))
                     }
-                    var menuOpen by androidx.compose.runtime.remember { mutableStateOf(false) }
+                    var menuOpen by remember { mutableStateOf(false) }
                     IconButton(onClick = { menuOpen = true }) {
                         Icon(
                             Icons.Filled.MoreVert,
@@ -180,6 +217,20 @@ fun GroupDetailScreen(
                             onClick = {
                                 menuOpen = false
                                 onExportCsv()
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sync_share_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onShareSync()
+                            },
+                        )
+                        androidx.compose.material3.DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sync_import_action)) },
+                            onClick = {
+                                menuOpen = false
+                                onImportSync()
                             },
                         )
                         val archived = state.archived == true
@@ -335,7 +386,7 @@ private fun ExpenseRow(
     onOpenExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
     onDuplicateExpense: (app.dibs.core.domain.model.ExpenseId) -> Unit,
 ) {
-    var menuOpen by androidx.compose.runtime.remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(false) }
     val payerName = expense.fields.paidBy.keys.firstOrNull()
         ?.let { state.members[it]?.name }.orEmpty()
     Row(
@@ -441,6 +492,36 @@ private fun DetailHeader(uiState: GroupDetailUiState, onOpenMembers: () -> Unit)
             if (uiState.pendingCount > 0) {
                 Spacer(Modifier.width(Dimens.spacingSm))
                 AssistChip(onClick = {}, label = { Text(stringResource(R.string.detail_syncing)) })
+            }
+            // FR-Y4: the sync chip is always honest and never a silent failure.
+            // NeverShared stays quiet — sync is opt-in, and nagging an offline-
+            // only group would violate "nothing about sync blocks entry".
+            when (val sync = uiState.syncStatus) {
+                is SyncStatus.ChangesToShare -> {
+                    Spacer(Modifier.width(Dimens.spacingSm))
+                    AssistChip(
+                        onClick = {},
+                        label = {
+                            Text(
+                                pluralStringResource(
+                                    R.plurals.sync_chip_changes,
+                                    sync.count.toInt(),
+                                    sync.count.toInt(),
+                                ),
+                            )
+                        },
+                        modifier = Modifier.testTag("sync-chip"),
+                    )
+                }
+                is SyncStatus.UpToDate -> {
+                    Spacer(Modifier.width(Dimens.spacingSm))
+                    AssistChip(
+                        onClick = {},
+                        label = { Text(stringResource(R.string.sync_chip_up_to_date)) },
+                        modifier = Modifier.testTag("sync-chip"),
+                    )
+                }
+                SyncStatus.NeverShared, null -> Unit
             }
         }
     }

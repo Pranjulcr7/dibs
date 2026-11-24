@@ -4,6 +4,7 @@ package app.dibs.di
 import app.dibs.core.data.ledger.DeviceIdProvider
 import app.dibs.core.domain.crypto.IdentitySource
 import app.dibs.core.domain.ledger.Ledger
+import app.dibs.core.domain.sync.BundleSync
 import app.dibs.core.domain.sync.GroupKeyStore
 import app.dibs.core.domain.sync.SyncMetaStore
 import app.dibs.core.domain.sync.SyncTransport
@@ -33,4 +34,8 @@ object SyncModule {
         identity: IdentitySource,
         deviceIdProvider: DeviceIdProvider,
     ): SyncService = SyncService(ledger, keys, meta, identity, deviceIdProvider.getOrCreate())
+
+    @Provides
+    @Singleton
+    fun bundleSync(service: SyncService): BundleSync = service
 }

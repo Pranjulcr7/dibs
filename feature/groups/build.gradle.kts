@@ -18,6 +18,8 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.compose.material.icons.core)
+    // QR rendering for invite links (M6); pure Java, present in both flavors.
+    implementation(libs.zxing.core)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)

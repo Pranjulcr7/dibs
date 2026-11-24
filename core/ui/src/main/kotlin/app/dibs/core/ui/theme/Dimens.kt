@@ -16,5 +16,6 @@ object Dimens {
     val spacingXl = 32.dp
     val minTouchTarget = 48.dp
     val chipIconSize = 18.dp
+    val inviteQrSize = 220.dp
     val guideFrameStroke = 2.dp
 }

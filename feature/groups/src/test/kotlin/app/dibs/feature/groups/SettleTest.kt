@@ -66,6 +66,17 @@ class SettleTest {
         }
     }
 
+    private fun detailViewModel(): GroupDetailViewModel {
+        val syncMeta = FakeSyncMetaStore()
+        return GroupDetailViewModel(
+            SavedStateHandle(mapOf("groupId" to groupId.value)),
+            ledger,
+            settings,
+            FakeBundleSync(ledger, syncMeta),
+            syncMeta,
+        )
+    }
+
     private suspend fun seedDebt() {
         ledger.append(groupId, OpPayload.CreateGroup("Trip", defaultCurrency = usd))
         ledger.append(groupId, OpPayload.AddMember(alice, "Alice"))
@@ -89,11 +100,7 @@ class SettleTest {
     @Test
     fun `given a recorded partial settlement then balances shrink and history lists the payment`() = runViewModelTest {
         seedDebt()
-        val viewModel = GroupDetailViewModel(
-            SavedStateHandle(mapOf("groupId" to groupId.value)),
-            ledger,
-            settings,
-        )
+        val viewModel = detailViewModel()
         viewModel.recordSettlement(bob, alice, Money(200), usd)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -105,11 +112,7 @@ class SettleTest {
     @Test
     fun `given a write-off then the pair disappears and the history labels it as written off`() = runViewModelTest {
         seedDebt()
-        val viewModel = GroupDetailViewModel(
-            SavedStateHandle(mapOf("groupId" to groupId.value)),
-            ledger,
-            settings,
-        )
+        val viewModel = detailViewModel()
         viewModel.recordSettlement(bob, alice, Money(500), usd, kind = "writeoff")
         dispatcher.scheduler.advanceUntilIdle()
 

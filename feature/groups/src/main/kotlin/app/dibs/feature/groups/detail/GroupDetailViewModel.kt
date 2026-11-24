@@ -15,9 +15,16 @@ import app.dibs.core.domain.model.SettlementId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
 import app.dibs.core.domain.settings.SettingsStore
+import app.dibs.core.domain.sync.BundleSync
+import app.dibs.core.domain.sync.SyncMetaStore
+import app.dibs.core.domain.sync.SyncStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -27,6 +34,7 @@ data class GroupDetailUiState(
     val state: GroupState? = null,
     val selfMember: MemberId? = null,
     val pendingCount: Int = 0,
+    val syncStatus: SyncStatus? = null,
 ) {
     /** My net in the group's default currency; null when unknown. */
     val myNet: Money?
@@ -42,18 +50,38 @@ class GroupDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val ledger: Ledger,
     settingsStore: SettingsStore,
+    private val bundleSync: BundleSync,
+    private val syncMeta: SyncMetaStore,
 ) : ViewModel() {
 
     private val groupId = GroupId(checkNotNull(savedStateHandle["groupId"]) { "groupId nav argument missing" })
 
+    /** Bumped after share/import so the FR-Y4 chip refreshes without a ledger change. */
+    private val syncTick = MutableStateFlow(0)
+
+    private val _syncEvents = MutableSharedFlow<BundleSync.ImportOutcome>(extraBufferCapacity = 1)
+    val syncEvents: SharedFlow<BundleSync.ImportOutcome> = _syncEvents.asSharedFlow()
+
     val uiState: StateFlow<GroupDetailUiState> =
-        combine(ledger.observeState(groupId), settingsStore.settings) { state, settings ->
+        combine(ledger.observeState(groupId), settingsStore.settings, syncTick) { state, settings, _ ->
             GroupDetailUiState(
                 state = state,
                 selfMember = settings.selfMembers[groupId],
                 pendingCount = ledger.pendingCount(groupId),
+                syncStatus = SyncStatus.of(syncMeta.metaFor(groupId), ledger.opCount(groupId)),
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), GroupDetailUiState())
+
+    /** Seals the whole group for the share sheet (FR-Y1); the screen owns the intent. */
+    suspend fun exportSyncBundle(): ByteArray = bundleSync.exportBundle(groupId).also { syncTick.value += 1 }
+
+    /** Applies a received bundle; every outcome surfaces as a specific message (FR-Y4). */
+    fun importSyncBundle(bytes: ByteArray) {
+        viewModelScope.launch {
+            _syncEvents.emit(bundleSync.importBundle(bytes))
+            syncTick.value += 1
+        }
+    }
 
     /**
      * Params are the *desired* values from the edit dialog (blank emoji =
