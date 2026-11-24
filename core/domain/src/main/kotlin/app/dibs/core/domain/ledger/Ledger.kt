@@ -49,6 +49,15 @@ interface Ledger {
      */
     suspend fun allOps(groupId: GroupId): List<Op>
 
+    /**
+     * How many ops the group holds, applied and pending alike — the number the
+     * sync chip compares against the count last shared (FR-Y4). A separate call
+     * from [allOps] because a status line must not cost a decode of the whole
+     * log: implementations answer it with a count, and reads stay cheap on a
+     * 5,000-op group (NFR-3, D40).
+     */
+    suspend fun opCount(groupId: GroupId): Long = allOps(groupId).size.toLong()
+
     /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
     suspend fun pendingCount(groupId: GroupId): Int
 

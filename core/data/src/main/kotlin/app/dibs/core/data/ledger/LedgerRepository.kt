@@ -54,6 +54,8 @@ class LedgerRepository(
         val fullRefolds: Int = 0,
         val projectionWrites: Int = 0,
         val snapshotRestores: Int = 0,
+        /** Times the op rows were read and decoded — the cost D40 keeps off read paths. */
+        val logLoads: Int = 0,
     )
 
     var diagnostics = Diagnostics()
@@ -132,10 +134,20 @@ class LedgerRepository(
 
     override suspend fun state(groupId: GroupId): GroupState = mutex.withLock { loadLocked(groupId).state }
 
-    /** Ops buffered for missing ancestors — the "syncing" indicator (case 24). */
+    /**
+     * Ops buffered for missing ancestors — the "syncing" indicator (case 24).
+     * A snapshot-restored cache answers from counts alone: every stored op is
+     * either applied or pending, so `rows - applied` is the pending set's size
+     * without decoding a single op (D40: reads never load the op log).
+     */
     override suspend fun pendingCount(groupId: GroupId): Int = mutex.withLock {
-        checkNotNull(withLogLocked(groupId).log).pending.size
+        val cache = loadLocked(groupId)
+        cache.log?.pending?.size
+            ?: (db.opDao().countForGroup(groupId.value) - cache.appliedCount).toInt().coerceAtLeast(0)
     }
+
+    /** [Ledger.opCount]: one COUNT query, never an op decode. */
+    override suspend fun opCount(groupId: GroupId): Long = db.opDao().countForGroup(groupId.value)
 
     override suspend fun totalOpCount(): Long = db.opDao().countAll()
 
@@ -220,7 +232,7 @@ class LedgerRepository(
     }
 
     private suspend fun fullLoadLocked(groupId: GroupId): GroupCache {
-        val log = OpLog.empty().merge(db.opDao().forGroup(groupId.value).map(OpCodec::fromEntity))
+        val log = readLogLocked(groupId)
         val applicable = log.applicable
         val state = GroupProjector.project(groupId, applicable)
         val cache =
@@ -237,11 +249,16 @@ class LedgerRepository(
         return cache
     }
 
+    private suspend fun readLogLocked(groupId: GroupId): OpLog {
+        diagnostics = diagnostics.copy(logLoads = diagnostics.logLoads + 1)
+        return OpLog.empty().merge(db.opDao().forGroup(groupId.value).map(OpCodec::fromEntity))
+    }
+
     /** Loads the op log for a snapshot-restored cache; reads never pay this cost. */
     private suspend fun withLogLocked(groupId: GroupId): GroupCache {
         val cache = loadLocked(groupId)
         if (cache.log != null) return cache
-        val log = OpLog.empty().merge(db.opDao().forGroup(groupId.value).map(OpCodec::fromEntity))
+        val log = readLogLocked(groupId)
         val applicable = log.applicable
         val intact = applicable.size == cache.appliedCount &&
             applicable.lastOrNull()?.id?.value == cache.lastAppliedOpId

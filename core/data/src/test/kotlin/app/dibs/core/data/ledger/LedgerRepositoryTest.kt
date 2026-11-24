@@ -190,6 +190,30 @@ class LedgerRepositoryTest {
     }
 
     @Test
+    fun `given a snapshot-restored group then state, op count, and pending count never decode the op log`() = runTest {
+        repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
+        repository.append(group, expensePayload(ExpenseId("e1"), 1000), 2)
+        // One op whose parent never arrived: stored, but pending (edge 24).
+        val remote = GroupLedger(group, remoteDevice)
+        remote.append(OpPayload.AddMember(bob, "Bob"), 3)
+        val orphan = remote.append(OpPayload.RenameMember(bob, "Bobby"), 4)
+        repository.ingest(group, listOf(orphan))
+
+        val reopened = LedgerRepository(db, localDevice)
+        reopened.state(group)
+
+        assertEquals(3L, reopened.opCount(group))
+        assertEquals(1, reopened.pendingCount(group))
+        assertEquals(1, reopened.diagnostics.snapshotRestores)
+        // The whole point of D40: a status line costs counts, not an op decode.
+        assertEquals(0, reopened.diagnostics.logLoads)
+        // And the counts agree with what loading the log would have said.
+        assertEquals(3, reopened.allOps(group).size)
+        assertEquals(1, reopened.diagnostics.logLoads)
+        assertEquals(1, reopened.pendingCount(group))
+    }
+
+    @Test
     fun `given ops written behind the snapshot's back then reopen refolds instead of trusting it`() = runTest {
         repository.append(group, OpPayload.AddMember(alice, "Alice"), 1)
 
