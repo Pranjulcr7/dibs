@@ -6,15 +6,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import app.dibs.core.domain.model.GroupId
+import app.dibs.core.domain.model.InviteId
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
 import app.dibs.core.domain.money.Money
@@ -23,6 +27,8 @@ import app.dibs.feature.groups.create.CreateGroupScreen
 import app.dibs.feature.groups.create.CreateGroupUiState
 import app.dibs.feature.groups.list.GroupCardUi
 import app.dibs.feature.groups.list.GroupsUiState
+import app.dibs.feature.groups.members.InviteRow
+import app.dibs.feature.groups.members.MemberManagementActions
 import app.dibs.feature.groups.members.MemberRow
 import app.dibs.feature.groups.members.MembersScreen
 import app.dibs.feature.groups.members.MembersUiState
@@ -113,6 +119,94 @@ class GroupsScreensComposeTest {
         compose.onNodeWithText("You").assertIsDisplayed()
         compose.onNodeWithText("Deactivated").assertIsDisplayed()
         compose.onNodeWithText("Zoe").assertIsDisplayed()
+        // Edge 12: both Sams carry the hint; the differently named members do not.
+        compose.onAllNodesWithText("Same name as another member — colors tell them apart").assertCountEquals(2)
+    }
+
+    @Test
+    fun `given a manager then approval, open invites, pending and joined-via-invite members show their controls`() {
+        val approved = ArrayList<MemberId>()
+        val removed = ArrayList<MemberId>()
+        val revoked = ArrayList<InviteId>()
+        var approvalToggledTo: Boolean? = null
+        compose.setContent {
+            DibsTheme {
+                MembersScreen(
+                    uiState = MembersUiState(
+                        members = listOf(
+                            MemberRow(MemberId("m1"), "Priya", active = true, isSelf = true, duplicateName = false),
+                            MemberRow(
+                                MemberId("m2"),
+                                "Sam",
+                                active = true,
+                                isSelf = false,
+                                duplicateName = false,
+                                pending = true,
+                                canRemove = true,
+                            ),
+                            MemberRow(
+                                MemberId("m3"),
+                                "Zoe",
+                                active = true,
+                                isSelf = false,
+                                duplicateName = false,
+                                joinedViaMyInvite = true,
+                            ),
+                        ),
+                        openInvites = listOf(InviteRow(InviteId("i1"), 1_700_000_000_000, usesLeft = 1, createdByMe = true)),
+                        approvalRequired = false,
+                        canManage = true,
+                    ),
+                    onBack = {},
+                    onAddMember = {},
+                    onRenameMember = { _, _ -> },
+                    onDeactivateMember = {},
+                    onReactivateMember = {},
+                    management = MemberManagementActions(
+                        onRevokeInvite = { revoked += it },
+                        onSetApprovalRequired = { approvalToggledTo = it },
+                        onApproveMember = { approved += it },
+                        onRemoveMember = { removed += it },
+                    ),
+                )
+            }
+        }
+
+        compose.onNodeWithText("Waiting to be approved").assertIsDisplayed()
+        compose.onNodeWithText("Joined with your invite").assertIsDisplayed()
+        compose.onNodeWithTag("approve-m2").performClick()
+        compose.onNodeWithTag("approval-toggle").performClick()
+        compose.onNodeWithTag("revoke-i1").performClick()
+
+        assertEquals(listOf(MemberId("m2")), approved)
+        assertEquals(true, approvalToggledTo)
+        assertEquals(listOf(InviteId("i1")), revoked)
+        assertTrue(removed.isEmpty())
+    }
+
+    @Test
+    fun `given someone who is not a full member then no joining controls are shown`() {
+        compose.setContent {
+            DibsTheme {
+                MembersScreen(
+                    uiState = MembersUiState(
+                        members = listOf(
+                            MemberRow(MemberId("m1"), "Priya", active = true, isSelf = true, duplicateName = false),
+                        ),
+                        openInvites = listOf(InviteRow(InviteId("i1"), 1_700_000_000_000, usesLeft = 1, createdByMe = false)),
+                        canManage = false,
+                    ),
+                    onBack = {},
+                    onAddMember = {},
+                    onRenameMember = { _, _ -> },
+                    onDeactivateMember = {},
+                    onReactivateMember = {},
+                )
+            }
+        }
+
+        compose.onAllNodesWithTag("approval-toggle").assertCountEquals(0)
+        compose.onAllNodesWithTag("revoke-i1").assertCountEquals(0)
     }
 
     @Test
