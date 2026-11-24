@@ -195,10 +195,9 @@ object GroupProjector {
         }
         claimedActiveMember(state, payload.removerKey)
             ?: return state.quarantine(op, QuarantineReason.UnauthorizedActor(payload.removerKey))
-        val hasHistory = state.expenses.values.any { expense ->
-            payload.memberId in expense.fields.paidBy || payload.memberId in expense.fields.owedBy
-        } || state.settlements.values.any { it.from == payload.memberId || it.to == payload.memberId }
-        if (hasHistory) return state.quarantine(op, QuarantineReason.RemovalBlocked(payload.memberId))
+        if (state.memberHasHistory(payload.memberId)) {
+            return state.quarantine(op, QuarantineReason.RemovalBlocked(payload.memberId))
+        }
         return state.copy(
             members = state.members.plusSorted(payload.memberId, member.copy(removed = true, active = false)),
         )

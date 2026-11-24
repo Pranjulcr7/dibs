@@ -159,6 +159,17 @@ data class GroupState(
     val trash: List<ExpenseState> get() = expenses.values.filter { it.deleted }
 
     /**
+     * True when [memberId] appears in any expense (deleted ones included) or
+     * settlement. Such a member can never be removed, only deactivated — their
+     * name is part of other people's history (edge 13). One definition, used by
+     * the fold's `RemoveMember` rule and by the UI that decides whether to
+     * offer removal, so the screen can never offer what the fold will refuse.
+     */
+    fun memberHasHistory(memberId: MemberId): Boolean =
+        expenses.values.any { memberId in it.fields.paidBy || memberId in it.fields.owedBy } ||
+            settlements.values.any { it.from == memberId || it.to == memberId }
+
+    /**
      * Net balances derived from active expenses and settlements. Deleted and
      * quarantined data never counts — a debt from an expense you can't see
      * would be unverifiable, violating "never show a number the user can't
