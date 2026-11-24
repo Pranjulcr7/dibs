@@ -82,6 +82,7 @@
     <string name="settle_amount">Amount</string>
     <string name="settle_save">Record</string>
     <string name="settle_cancel">Cancel</string>
+    <string name="settle_duplicate_hint">The same payment appears twice below, and it has left someone in credit. If it was only paid once, it was probably recorded on two phones.</string>
     <string name="settle_history_header">Payments</string>
     <string name="settle_history_paid">%1$s paid %2$s</string>
     <string name="settle_history_writeoff">%1$s\'s debt to %2$s written off</string>

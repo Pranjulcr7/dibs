@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import app.dibs.core.domain.ledger.DuplicateSettlements
 import app.dibs.core.domain.ledger.GroupState
 import app.dibs.core.domain.model.MemberId
 import app.dibs.core.domain.money.CurrencyCode
@@ -243,6 +244,20 @@ internal fun SettleTabContent(
             }
         }
         if (state.settlements.isNotEmpty()) {
+            val suspects = DuplicateSettlements.suspects(state)
+            if (suspects.isNotEmpty()) {
+                // Edge 32: both payments are kept; the screen explains the credit they caused.
+                item(key = "duplicate-hint") {
+                    Text(
+                        stringResource(R.string.settle_duplicate_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .padding(top = Dimens.spacingMd)
+                            .testTag("duplicate-settlement-hint"),
+                    )
+                }
+            }
             item(key = "history-header") {
                 Column {
                     Spacer(Modifier.height(Dimens.spacingMd))

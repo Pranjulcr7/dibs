@@ -161,6 +161,30 @@ class SettleTest {
     }
 
     @Test
+    fun `edge 32 - given the same repayment recorded twice then the settle tab hints at a possible duplicate`() {
+        val state = kotlinx.coroutines.runBlocking {
+            seedDebt()
+            repeat(2) { n ->
+                ledger.append(
+                    groupId,
+                    OpPayload.RecordSettlement(
+                        app.dibs.core.domain.model.SettlementId("5${n}000000-0000-4000-8000-000000000000"),
+                        bob,
+                        alice,
+                        Money(500),
+                        usd,
+                    ),
+                )
+            }
+            ledger.state(groupId)
+        }
+        compose.setContent {
+            DibsTheme { SettleTabContent(state, alice) { _, _, _, _ -> } }
+        }
+        compose.onNodeWithTag("duplicate-settlement-hint").assertIsDisplayed()
+    }
+
+    @Test
     fun `given a single-member group then the settle tab explains there is nobody to settle with`() {
         val state = kotlinx.coroutines.runBlocking {
             ledger.append(groupId, OpPayload.CreateGroup("Solo", defaultCurrency = usd))
