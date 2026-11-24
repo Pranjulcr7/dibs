@@ -39,9 +39,11 @@
 
 - id: FR-G5
   title: One-off split with no group creates a hidden ad-hoc group
-  status: open
-  tests: []
-  note: "Implemented (QuickAddViewModel.createAdHocGroup, ad-hoc filter in GroupsViewModel), untested."
+  status: covered
+  tests:
+    - app/src/test/kotlin/app/dibs/QuickAddViewModelTest.kt :: given just this once then a hidden group is created with me in it, claimed, in my default currency
+    - app/src/test/kotlin/app/dibs/QuickAddViewModelTest.kt :: given regular, ad-hoc, and archived groups then the add-expense picker offers only the regular ones, by name
+  note: ""
 
 - id: FR-G6
   title: Group list shows the current user's net position per group
@@ -1209,9 +1211,10 @@
 
 - id: F15
   title: Just-this-once ad-hoc split
-  status: open
-  tests: []
-  note: "Implemented (QuickAddViewModel), untested at every level."
+  status: partial
+  tests:
+    - app/src/test/kotlin/app/dibs/QuickAddViewModelTest.kt :: given just this once then a hidden group is created with me in it, claimed, in my default currency
+  note: "The ad-hoc group and the picker are tested at ViewModel level; the bottom sheet itself is exercised only by the on-device flow."
 
 - id: F16
   title: Archive and unarchive, delete group with typed confirmation and pre-delete backup

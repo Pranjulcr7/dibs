@@ -41,13 +41,16 @@ class QuickAddViewModel @Inject constructor(
                 flowOf(emptyList())
             } else {
                 combine(ids.sorted().map { ledger.observeState(it) }) { states ->
-                    states.filterNot { it.meta?.adHoc == true || it.archived == true }.map { state ->
-                        QuickAddTarget(
-                            id = state.groupId,
-                            label = listOfNotNull(state.meta?.emoji, state.meta?.name).joinToString(" ")
-                                .ifBlank { state.groupId.value.take(GROUP_ID_LABEL_LENGTH) },
-                        )
-                    }.sortedBy { it.label.lowercase() }
+                    states.filterNot { it.meta?.adHoc == true || it.archived == true }
+                        // By name, not by label: a leading emoji must not decide the order.
+                        .sortedWith(compareBy({ it.meta?.name.orEmpty().lowercase() }, { it.groupId }))
+                        .map { state ->
+                            QuickAddTarget(
+                                id = state.groupId,
+                                label = listOfNotNull(state.meta?.emoji, state.meta?.name).joinToString(" ")
+                                    .ifBlank { state.groupId.value.take(GROUP_ID_LABEL_LENGTH) },
+                            )
+                        }
                 }
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT), emptyList())
