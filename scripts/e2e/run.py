@@ -38,10 +38,20 @@ def flow(flow_id: str, title: str):
 
 def fresh(device: Device, name: str | None) -> None:
     """A brand-new install: wiped data, onboarding walked (or skipped when name is None)."""
+    # HOME first: a system picker or share sheet left open by a failed flow
+    # would otherwise come back to the front and bury the fresh launch.
+    device.shell("input keyevent KEYCODE_HOME")
     device.force_stop()
     device.clear_data()
-    device.launch()
-    device.expect("Split expenses with friends")
+    for attempt in range(3):
+        device.launch()
+        try:
+            device.expect("Split expenses with friends", timeout=10)
+            break
+        except StepFailed:
+            if attempt == 2:
+                raise
+            device.shell("input keyevent KEYCODE_HOME")
     if name is None:
         device.tap("Skip")
     else:
@@ -428,29 +438,37 @@ def f16(a: Device, b: Device) -> None:
     a.expect_gone("Archived")
 
 
-def pick_receipt_image(device: Device) -> None:
-    """Scan screen → gallery → the generated receipt in Downloads."""
+def push_receipt_image(device: Device) -> None:
+    """Puts the generated receipt in Downloads and asks the media index to notice it."""
     from receipt import write_receipt
 
     local = os.path.join(OUT, "receipt-e2e.png")
     os.makedirs(OUT, exist_ok=True)
     write_receipt(local)
     device.adb("push", local, "/sdcard/Download/receipt-e2e.png")
-    # A pushed file is invisible to the system picker until the media index has seen it.
     device.shell(
         "am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE "
         "-d file:///sdcard/Download/receipt-e2e.png >/dev/null",
         check=False,
     )
-    device.shell("content call --uri content://media --method scan_volume --arg external_primary >/dev/null", check=False)
-    time.sleep(2)
+
+
+def pick_receipt_image(device: Device) -> None:
+    """Scan screen → gallery → the generated receipt, via Recent or, failing that, Downloads."""
     device.tap("Pick from gallery")
-    device.tap("receipt-e2e.png, ", timeout=20)
+    try:
+        device.tap("receipt-e2e.png, ", timeout=8)
+    except StepFailed:
+        # Not in "Recent" yet (the media index lags a pushed file): browse to it.
+        device.tap("Show roots")
+        device.tap("Downloads", exact=True)
+        device.tap("receipt-e2e.png", timeout=20)
     device.expect("1 frame captured", timeout=20)
 
 
 @flow("F17", "Scan a receipt from the gallery with the camera denied; itemize it; scanning it again warns")
 def f17(a: Device, b: Device) -> None:
+    push_receipt_image(a)
     fresh(a, "Alice")
     create_group(a, "Cafe")
     add_members(a, "Bob")

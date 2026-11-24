@@ -62,7 +62,8 @@ def alice_makes_invite(a: Device) -> bytes:
     a.tap("Members", exact=True)
     a.tap("Invite", exact=True)
     a.expect("Invite to this group", "QR code for the invite link", "For one person, valid until")
-    a.tap("Send invite")
+    # Exact: the dialog's explanation also contains the words "Send invite".
+    a.tap("Send invite", exact=True)
     invite = wait_for_staged(a, INVITE_FILE)
     a.tap("Done")
     a.tap("Back")
